@@ -1,0 +1,55 @@
+﻿# ===== 六人桌 100bb 翻前範圍（近似值，可自行修改）=====
+# 這些是依常見 GTO 圖表整理的「近似」範圍，不是解算器算出的精確解；要精確請貼上你自己的範圍。
+# 查找順序：<類型>_<自己>_vs_<對手> → <類型>_<自己>_vs_IP/OOP → <類型>_IP/OOP_vs_<對手> → <類型>_<自己> → <類型>_IP/OOP
+# （IP/OOP 指翻後位置；想針對某個對決單獨設定，新增一行完整名稱即可，例如 rfi_BTN_vs_BB = ...）
+
+# --- 開池加注 (RFI) ---
+rfi_UTG = 55+, A9s+, A5s-A3s, KTs+, QTs+, J9s+, T9s, 98s, 87s:0.5, 76s:0.5, AJo+, KQo
+rfi_HJ  = 44+, A2s+, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, ATo+, KJo+, QJo:0.5
+rfi_CO  = 22+, A2s+, K6s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 76s, 65s, 54s, ATo+, KTo+, QTo+, JTo
+rfi_BTN = 22+, A2s+, K2s+, Q4s+, J6s+, T6s+, 96s+, 85s+, 75s+, 64s+, 54s, A4o+, K8o+, Q9o+, J9o+, T8o+, 98o
+rfi_SB  = 22+, A2s+, K2s+, Q4s+, J6s+, T6s+, 96s+, 85s+, 75s+, 64s+, 54s, A5o+, K9o+, Q9o+, J9o+, T9o
+
+# --- 跟注開池 (單次加注底池) ---
+call_BB_vs_UTG = 22-TT, JJ:0.5, A2s-AJs, AQs:0.5, K6s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, ATo-AQo, KJo+, QJo
+call_BB_vs_HJ  = 22-TT, JJ:0.5, A2s-AJs, AQs:0.5, K4s+, Q7s+, J8s+, T7s+, 96s+, 86s+, 75s+, 64s+, 54s, ATo-AQo, KTo+, QTo+, JTo
+call_BB_vs_CO  = 22-99, TT:0.5, A2s-ATs, AJs:0.5, K2s-KTs, KJs:0.5, KQs:0.5, Q5s+, J7s+, T7s+, 96s+, 85s+, 75s+, 64s+, 53s+, 43s, A8o-AJo, A5o, AQo:0.5, KTo+, QTo+, JTo, T9o
+call_BB_vs_BTN = 22-88, 99:0.5, A6s-A9s, ATs:0.5, A2s-A5s:0.5, K2s-K8s, K9s:0.5, KTs+:0.5, Q2s-Q9s, QTs+:0.5, J4s-J9s, JTs:0.5, T6s-T8s, T9s:0.5, 95s+, 85s+, 74s+, 63s+, 53s+, 43s, A2o-ATo, AJo:0.5, K8o+, Q9o+, J9o+, T8o+, 98o, 87o
+call_BB_vs_SB  = 22-99, A6s-ATs, A2s-A5s:0.5, K2s-KTs, Q2s+, J4s+, T6s+, 95s+, 85s+, 74s+, 64s+, 53s+, 43s, A2o-AJo, K7o+, Q8o+, J8o+, T8o+, 97o+, 87o
+call_IP_vs_UTG = 55-JJ, ATs-AQs, KJs+, QJs, JTs, T9s, 98s, AQo:0.5
+call_IP_vs_HJ  = 44-JJ, ATs-AQs, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo
+call_IP_vs_CO  = 33-TT, A9s-AQs, A5s:0.5, KTs+, QTs+, J9s+, T9s, 98s, 87s, 76s, AJo+, KQo
+call_SB        = 66-JJ, AJs-AQs, KQs, QJs, JTs, T9s:0.5
+
+# --- 3-bet ---
+3bet_IP_vs_UTG = QQ+, JJ:0.5, AKs, AKo, AQs:0.5, A5s, KQs:0.5
+3bet_IP_vs_HJ  = JJ+, TT:0.5, AQs+, AKo, A5s-A4s, KQs:0.5, 76s:0.5
+3bet_IP_vs_CO  = TT+, AJs+, AQo+, A5s-A3s, KJs+, QJs:0.5, 87s:0.5, 76s:0.5, KQo:0.5
+3bet_SB_vs_UTG = QQ+, JJ, TT:0.5, AKs, AKo, AQs, A5s, KQs:0.5
+3bet_SB_vs_HJ  = TT+, AJs+, AKo, A5s-A4s, KQs, KJs:0.5
+3bet_SB_vs_CO  = 99+, ATs+, A5s-A4s, KTs+, QJs, JTs, AQo+, KQo:0.5
+3bet_SB_vs_BTN = 77+, A9s+, A5s-A2s, K9s+, QTs+, JTs, T9s, 98s:0.5, AJo+, KQo, KJo:0.5
+3bet_BB_vs_UTG = QQ+, JJ:0.5, AKs, AKo, AQs:0.5, A5s, 76s:0.5, 65s:0.5
+3bet_BB_vs_HJ  = QQ+, JJ:0.5, AKs, AKo, AQs:0.5, A5s-A4s, KQs:0.5, 76s:0.5, 65s:0.5
+3bet_BB_vs_CO  = JJ+, TT:0.5, AQs+, AJs:0.5, AKo, AQo:0.5, A5s-A3s, KJs+:0.5
+3bet_BB_vs_BTN = TT+, 99:0.5, AJs+, ATs:0.5, AQo+, AJo:0.5, A2s-A5s:0.5, KTs+:0.5, K9s:0.5, QTs+:0.5, JTs:0.5, T9s:0.5, KQo:0.5
+3bet_BB_vs_SB  = TT+, AJs+, AQo+, A2s-A5s:0.5, KJs+, QJs:0.5, JTs:0.5, T9s:0.5, 98s:0.5, 87s:0.5, KJo:0.5, ATo:0.5
+
+# --- 開池者跟注 3-bet ---
+callvs3bet_UTG_vs_IP  = TT-QQ, AQs, AKs:0.5, AJs:0.5, KQs, JTs:0.5, AKo:0.5
+callvs3bet_UTG_vs_OOP = 99-QQ, AJs+, KQs, KJs:0.5, QJs, JTs, T9s:0.5, AKo:0.5, AQo:0.5
+callvs3bet_HJ_vs_IP   = 99-QQ, AJs-AQs, AKs:0.5, KQs, KJs:0.5, QJs:0.5, JTs, AKo:0.5
+callvs3bet_HJ_vs_OOP  = 88-QQ, ATs-AQs, AKs:0.5, KJs+, QJs, JTs, T9s, 98s:0.5, AQo, AKo:0.5
+callvs3bet_CO_vs_IP   = 88-JJ, QQ:0.5, ATs-AQs, AKs:0.5, KTs+, QTs+, JTs, T9s, 98s:0.5, AQo, AKo:0.5
+callvs3bet_CO_vs_OOP  = 77-JJ, QQ:0.5, A9s-AQs, AKs:0.5, KTs+, QTs+, J9s+, T9s, 98s, 87s, 76s:0.5, AQo, AJo:0.5, KQo, AKo:0.5
+callvs3bet_BTN_vs_OOP = 55-JJ, QQ:0.5, A7s-AQs, A5s-A4s, AKs:0.5, K9s+, Q9s+, J9s+, T8s+, 97s+, 87s, 76s, 65s, AJo-AQo, KQo, AKo:0.5
+callvs3bet_SB_vs_IP   = 66-JJ, A8s-AQs, A5s-A4s, K9s+, Q9s+, J9s+, T8s+, 98s, 87s, 76s, AJo-AQo, KQo
+
+# --- 4-bet 與跟注 4-bet ---
+4bet_UTG = KK+, QQ:0.5, AKs, AKo:0.5, A5s:0.5
+4bet_HJ  = KK+, QQ:0.5, AKs:0.5, AKo:0.5, A5s:0.5, A4s:0.5
+4bet_CO  = QQ+, AKs:0.5, AKo, A5s:0.5, A4s:0.5
+4bet_BTN = QQ+, JJ:0.5, AKs:0.5, AKo, A5s-A4s, A8s:0.5
+4bet_SB  = QQ+, JJ:0.5, AKs, AKo, A5s-A4s, ATs:0.5
+callvs4bet_IP  = JJ-QQ, TT:0.5, KK:0.5, AA:0.5, AKs, AQs, AKo:0.5, KQs:0.5, A5s:0.5
+callvs4bet_OOP = JJ-QQ, TT:0.5, KK:0.5, AA:0.5, AKs, AQs:0.5, AKo:0.5

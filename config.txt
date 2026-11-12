@@ -1,0 +1,64 @@
+﻿# ===== GTO 解算器設定檔 =====  (# 之後為註解)
+# 牌面：3 張 = 從翻牌解，4 張 = 從轉牌解，5 張 = 只解河牌
+board = Qs Jh 2h
+
+# ----- 六人桌對決設定 -----
+# 格式：開池者 vs 對手。位置：UTG, HJ, CO, BTN, SB, BB（開池者必須在對手之前行動）
+matchup  = BTN vs BB
+# 底池類型：srp = 單次加注底池（對手跟注）, 3bp = 對手 3-bet 開池者跟注, 4bp = 開池者 4-bet 對手跟注
+pot_type = srp
+stack_bb = 100                 # 翻前起始籌碼 (bb)
+open_size = 2.5                # 開池尺度 (bb)
+sb_open_size = 3               # 小盲開池尺度 (bb)
+threebet_ip_mult  = 3          # 有位置 3-bet = 開池尺度 x 此倍數
+threebet_oop_mult = 4          # 沒位置 3-bet = 開池尺度 x 此倍數
+fourbet_mult = 2.2             # 4-bet = 3-bet 尺度 x 此倍數
+ranges_file = ranges_6max.txt  # 各位置翻前範圍（可自行修改）
+# 範圍、底池、籌碼會依上面自動帶入，誰是 OOP/IP 也會自動判斷。
+
+# ----- 手動覆寫（選用）：去掉行首的 # 就會取代自動帶入的值 -----
+# 把 matchup 那行刪掉或加上 #，就回到完全手動模式（此時下面四項都要填）。
+# 範圍語法：AA, TT+, 22-66, AKs, AKo, AK, A2s+, KTs-K7s, AhKh, 並可加權重 AQo:0.5
+# pot   = 5.5
+# stack = 97.5
+# range_oop = 22-TT, A2s-AJs, K8s+, Q9s+, J9s+, T8s+, 97s+, 87s, 76s, 65s, ATo-AJo, KTo+, QTo+, JTo
+# range_ip  = 22+, A2s+, K6s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, ATo+, KTo+, QJo
+
+# 下注尺度（底池 %，可多個，以逗號分隔；留空 = 不允許下注）
+oop_flop_bet   = 33
+oop_flop_raise = 60
+ip_flop_bet    = 33, 75
+ip_flop_raise  = 60
+
+oop_turn_bet   = 66
+oop_turn_raise = 60
+ip_turn_bet    = 66
+ip_turn_raise  = 60
+
+oop_river_bet   = 66
+oop_river_raise = 60
+ip_river_bet    = 66
+ip_river_raise  = 60
+
+# 每條街最多幾次下注+加注（1 = 只能下注不能加注，2 = 下注+加注...）
+raise_cap = 2
+# 是否在每個決策點額外加入全下選項
+add_allin = false
+# 下注量 >= 剩餘籌碼的此比例時自動轉為全下
+allin_threshold = 0.67
+
+# 抽水（0 = 無）：rake 為比例，rake_cap 為上限
+rake = 0
+rake_cap = 0
+
+# 最佳化（一般保持開啟）
+isomorphism = true             # 花色同構：合併等價的轉牌/河牌，省時間與記憶體
+compress = true                # 16-bit 壓縮儲存：記憶體減半
+
+# 解算控制
+iterations = 200
+target_exploitability = 0.5    # 目標可剝削度（底池 %），達到即停止
+check_every = 10
+threads = 0                    # 0 = 自動
+export_streets = 1             # 輸出幾條街到瀏覽器（1 = 只輸出當前街；2 會大很多）
+output = result.js

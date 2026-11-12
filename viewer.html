@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>六人桌 GTO 解算器</title>
+<style>
+:root{
+  --bg:#0f1115;--bg2:#151820;--panel:#1a1e27;--panel2:#212633;--line:#2a3040;--line2:#363d50;
+  --tx:#e9edf5;--tx2:#a3acbf;--tx3:#6f788c;
+  --acc:#f2a33a;--acc2:#ffbf5e;--blue:#4ea8f0;--green:#3fb771;--red:#ef5a5a;
+  --felt1:#2c8a58;--felt2:#17603b;--felt3:#0d4128;--rail1:#6b4428;--rail2:#3a2213;
+  --r:14px;
+}
+*{box-sizing:border-box}
+body{margin:0;overflow-x:hidden;background:radial-gradient(1200px 600px at 20% -10%,#1d2433 0%,transparent 60%),var(--bg);color:var(--tx);
+  font-family:"Segoe UI","Microsoft JhengHei UI","Microsoft JhengHei","PingFang TC",-apple-system,sans-serif;font-size:14px;min-height:100vh}
+.wrapA{max-width:1320px;margin:0 auto;padding:0 20px 40px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:18px 0 10px}
+.logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--acc),#d9561f);display:grid;place-items:center;font-weight:800;color:#1a1000;font-size:18px;box-shadow:0 4px 14px #f2a33a40}
+header h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.3px}
+header .sub{color:var(--tx3);font-size:12px}
+.pill{margin-left:auto;font-size:12px;padding:5px 10px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);color:var(--tx2);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--tx3)}.dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+.sec{display:flex;align-items:center;gap:10px;margin:22px 0 12px}
+.sec .n{width:24px;height:24px;border-radius:50%;background:var(--acc);color:#1a1000;font-weight:800;display:grid;place-items:center;font-size:13px}
+.sec h2{font-size:16px;margin:0}
+.sec .hint{color:var(--tx3);font-size:12px}
+.panel{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:0 8px 30px #0005}
+.row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.lbl{font-size:12px;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px;font-weight:600}
+.lbl:first-child{margin-top:0}
+.info{font-size:13px;color:var(--tx2)}.warn{color:#f0b35a;font-size:13px}.err{color:var(--red)}
+button{font-family:inherit;background:var(--panel2);color:var(--tx);border:1px solid var(--line2);border-radius:9px;padding:7px 12px;cursor:pointer;font-size:13px;transition:.15s}
+button:hover{background:#2a3142;border-color:#4a5368}button:disabled{opacity:.4;cursor:default}
+.go{background:linear-gradient(135deg,var(--acc2),var(--acc));color:#1a1000;border:0;font-weight:700;font-size:15px;padding:11px 26px;box-shadow:0 6px 18px #f2a33a40}
+.go:hover{filter:brightness(1.08);background:linear-gradient(135deg,var(--acc2),var(--acc))}
+.ghost{background:transparent}
+.seg{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--tx2);border-radius:8px;padding:7px 14px}
+.seg button.on{background:var(--panel2);color:var(--tx);box-shadow:0 1px 0 #ffffff12 inset,0 2px 8px #0006}
+input{font-family:inherit;background:var(--bg);color:var(--tx);border:1px solid var(--line2);border-radius:7px;padding:6px 8px;font-size:13px;width:100%}
+input:focus{outline:none;border-color:var(--acc)}
+/* cards */
+.card{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:30px;height:40px;border-radius:5px;background:linear-gradient(180deg,#fff,#eceff3);
+  margin:0 2px;line-height:1;font-weight:800;box-shadow:0 2px 5px #0007;vertical-align:middle}
+.card b{font-size:15px}.card i{font-style:normal;font-size:13px;margin-top:1px}
+.card.sm{width:22px;height:28px;margin:0 1px;border-radius:4px}.card.sm b{font-size:11px}.card.sm i{font-size:10px}
+.card.lg{width:44px;height:60px;border-radius:7px}.card.lg b{font-size:21px}.card.lg i{font-size:19px}
+.s{color:#1d2330}.h{color:#d8262c}.d{color:#1b6fd1}.c{color:#1f8a43}
+.slot{display:inline-block;width:44px;height:60px;border-radius:7px;border:2px dashed #ffffff40;margin:0 2px;vertical-align:middle}
+/* poker table */
+.tbl{position:relative;width:min(600px,calc(100% - 40px));margin:0 20px;aspect-ratio:16/10.5;flex:none}
+.rail{position:absolute;inset:10% 8%;border-radius:999px;background:linear-gradient(180deg,var(--rail1),var(--rail2));box-shadow:0 18px 40px #000a,inset 0 2px 0 #ffffff22}
+.felt{position:absolute;inset:calc(10% + 12px) calc(8% + 12px);border-radius:999px;background:radial-gradient(ellipse at 50% 40%,var(--felt1) 0%,var(--felt2) 60%,var(--felt3) 100%);box-shadow:inset 0 0 40px #000a}
+.felt:after{content:"";position:absolute;inset:16%;border-radius:999px;border:1.5px solid #ffffff18}
+.mark{position:absolute;left:50%;top:28%;transform:translate(-50%,-50%);font-size:11px;letter-spacing:4px;color:#ffffff30;font-weight:700}
+.mid{position:absolute;left:50%;top:54%;transform:translate(-50%,-50%);text-align:center;white-space:nowrap}
+.potTag{display:inline-block;margin-top:8px;background:#0008;border:1px solid #ffffff1a;border-radius:99px;padding:3px 12px;font-size:13px;color:#ffe3a3;font-weight:600}
+.seat{position:absolute;transform:translate(-50%,-50%);text-align:center;cursor:pointer;user-select:none;transition:.2s;width:92px}
+.av{width:58px;height:58px;margin:0 auto;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:15px;background:linear-gradient(180deg,#2c3242,#1b1f2a);border:2px solid #485068;box-shadow:0 6px 14px #0009;transition:.2s}
+.seat:hover .av{border-color:#8590ad}
+.tag{display:inline-block;margin-top:5px;font-size:11.5px;padding:2px 8px;border-radius:99px;background:#000b;color:var(--tx2);border:1px solid #ffffff14;line-height:1.35}
+.seat.opener .av{background:linear-gradient(180deg,#5a3c12,#2c1d08);border-color:var(--acc);color:var(--acc2)}
+.seat.opener .tag{color:var(--acc2);border-color:#f2a33a55}
+.seat.caller .av{background:linear-gradient(180deg,#12405e,#0a2131);border-color:var(--blue);color:#9fd2ff}
+.seat.caller .tag{color:#9fd2ff;border-color:#4ea8f055}
+.seat.fold{opacity:.35}.seat.empty .av{border-style:dashed}
+.seat.act .av{animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 #ffffffaa,0 6px 14px #0009}50%{box-shadow:0 0 0 7px #ffffff00,0 6px 14px #0009}}
+.seat.static{cursor:default}
+.chip{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#fff;white-space:nowrap;background:#0009;padding:2px 8px 2px 3px;border-radius:99px}
+.chip:before{content:"";width:14px;height:14px;border-radius:50%;background:radial-gradient(circle,#fff 0 28%,#e03b3b 30% 100%);border:2px dashed #fff8}
+.chip.act:before{display:none}.chip.act{padding:2px 9px;background:#000c;border:1px solid #ffffff22}
+.btnD{position:absolute;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:linear-gradient(180deg,#fff,#d8d8d8);color:#111;font-weight:900;font-size:12px;display:grid;place-items:center;box-shadow:0 2px 5px #0009}
+/* picker */
+.board{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.board .gap{width:8px}
+.picker{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:3px;margin-top:10px;max-width:460px}
+.picker button{padding:0;height:30px;font-size:12px;font-weight:800;background:#f3f5f8;border:2px solid transparent;border-radius:5px}
+.picker button:hover{background:#fff;transform:translateY(-1px)}
+.picker button.used{background:#3a2c14;border-color:var(--acc);color:var(--acc2)}
+details{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+details summary{cursor:pointer;color:var(--tx2);font-size:13px;list-style:none}
+details summary:before{content:"▸ ";color:var(--acc)}details[open] summary:before{content:"▾ "}
+.sz{width:100%;border-collapse:collapse;margin-top:10px}.sz td,.sz th{padding:3px 4px;border:0;font-size:12px;color:var(--tx2);text-align:left;font-weight:500}
+.advg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:10px}
+.advg label{font-size:11.5px;color:var(--tx3);display:block;margin-bottom:3px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px}
+.stat{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.stat .k{font-size:11.5px;color:var(--tx3)}.stat .v{font-size:18px;font-weight:700;margin-top:2px}
+.stat .v small{font-size:12px;color:var(--tx3);font-weight:500}
+.prog{height:6px;background:var(--bg);border-radius:99px;overflow:hidden;margin-top:12px}
+.prog div{height:100%;width:0;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .4s}
+pre{background:#0a0c10;border:1px solid var(--line);border-radius:9px;padding:10px;font:12px/1.5 Consolas,"Cascadia Mono",monospace;color:#9fe0b5;max-height:200px;overflow:auto;white-space:pre-wrap;margin:10px 0 0}
+/* results */
+.crumb{display:flex;flex-wrap:wrap;gap:4px;font-size:12px;margin-top:10px}
+.crumb span{background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:3px 9px;color:var(--tx2)}
+.crumb span:last-child{color:var(--tx);border-color:var(--line2)}
+.acts{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.abtn{display:flex;align-items:center;gap:10px;text-align:left;padding:9px 12px;position:relative;overflow:hidden}
+.abtn .bar{position:absolute;left:0;top:0;bottom:0;opacity:.18;transition:width .3s}
+.abtn .nm{font-weight:600;position:relative}.abtn .pc{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--tx2);position:relative}
+.sw{display:inline-block;width:11px;height:11px;border-radius:3px;position:relative;flex:none}
+.mix{display:flex;height:10px;border-radius:99px;overflow:hidden;margin-top:12px;background:var(--bg)}
+.dealt{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
+.dealt button{padding:4px;background:transparent;border-color:var(--line)}
+.grid{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:2px;width:min(640px,100%)}
+.cell{aspect-ratio:1/0.9;position:relative;background:#1c2029;border-radius:4px;font-size:11px;cursor:pointer;overflow:hidden}
+.cell span{position:absolute;left:4px;top:3px;z-index:2;text-shadow:0 1px 3px #000;font-weight:700;color:#fff}
+.cell.pair{background:#232838}
+.cell .fill{position:absolute;left:0;right:0;bottom:0;display:flex}
+.cell.sel{outline:2px solid #fff;outline-offset:-1px;z-index:3}
+.cell:hover{filter:brightness(1.25)}
+.tw{flex:1;min-width:320px;max-height:640px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+table.cb{border-collapse:collapse;font-size:12px;width:100%}
+.cb th{position:sticky;top:0;background:var(--panel2);font-weight:600;color:var(--tx2);z-index:2}
+.cb td,.cb th{padding:5px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.cb td:first-child,.cb th:first-child{text-align:left}
+.cb tr:hover td{background:#ffffff08}
+.empty{padding:30px;text-align:center;color:var(--tx3)}
+@media(max-width:700px){.wrapA{padding:0 12px 30px}.seat{width:74px}.av{width:44px;height:44px;font-size:12px}.tag{font-size:10px;padding:1px 5px}.card.lg{width:34px;height:46px}.card.lg b{font-size:16px}.card.lg i{font-size:14px}.slot{width:34px;height:46px}}
+</style></head><body><div class="wrapA">
+<header><div class="logo">♠</div><div><h1>六人桌 GTO 解算器</h1><div class="sub">Postflop heads-up solver · 6-max preflop ranges</div></div>
+  <div class="pill"><span id="dot" class="dot"></span><span id="srvTxt">連線中…</span></div></header>
+
+<div class="sec"><div class="n">1</div><h2>牌桌設定</h2><span class="hint">點兩個座位選出對決雙方，先行動者自動為開池者</span></div>
+<div class="row">
+  <div class="panel" style="flex:1.2;min-width:min(100%,420px);display:flex;justify-content:center"><div id="setupTbl" class="tbl"></div></div>
+  <div class="panel" style="flex:1;min-width:min(100%,360px)">
+    <div class="lbl">底池類型</div><div class="seg" id="ptype"></div>
+    <div class="stats" id="potInfo" style="grid-template-columns:repeat(auto-fit,minmax(100px,1fr))"></div><div id="potWarn"></div>
+    <div class="lbl">牌面 <span style="text-transform:none;letter-spacing:0;font-weight:400">· 3 張 = 翻牌，4 張 = 轉牌，5 張 = 河牌</span></div>
+    <div class="board"><div id="boardSlots" class="board"></div><span style="flex:1"></span><button id="rnd" class="ghost">🎲 隨機翻牌</button><button id="clr" class="ghost">清除</button></div>
+    <div id="picker" class="picker"></div>
+    <details><summary>進階設定（籌碼、下注尺度、迭代次數…）</summary><div id="adv"></div></details>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:16px"><button class="go" id="solve">開始解算</button><button id="stop" disabled>停止</button><button id="dl" class="ghost">下載 config.txt</button></div>
+    <div id="srvMsg" class="warn" style="margin-top:8px"></div>
+    <div class="prog" id="prog" hidden><div></div></div>
+    <pre id="log" hidden></pre>
+  </div>
+</div>
+
+<div class="sec"><div class="n">2</div><h2>解算結果</h2><span class="hint" id="resHint"></span></div>
+<div class="panel">
+  <div id="info"></div>
+  <div class="row" style="margin-top:14px">
+    <div style="flex:1.1;min-width:min(100%,380px);display:flex;justify-content:center"><div id="resTbl" class="tbl" style="width:min(500px,100%)"></div></div>
+    <div style="flex:1;min-width:min(100%,300px)">
+      <div style="display:flex;gap:8px"><button id="back">← 上一步</button><button id="rootb">回到起點</button></div>
+      <div id="crumb" class="crumb"></div>
+      <div id="head" class="info" style="margin-top:14px"></div>
+      <div id="mix" class="mix" hidden></div>
+      <div id="acts"></div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:18px"><div id="grid" class="grid"></div><div id="side" class="tw"></div></div>
+</div>
+</div>
+
+<script src="result.js"></script>
+<script>
+// ------------------------------------------------------------ shared
+const POS=["UTG","HJ","CO","BTN","SB","BB"], ANG={BTN:90,SB:150,BB:210,UTG:270,HJ:330,CO:30};
+const RK="AKQJT98765432", SU="shdc", SYM={s:"♠",h:"♥",d:"♦",c:"♣"};
+const cardHtml=(c,sz="")=>`<span class="card ${sz} ${c[1]}"><b>${c[0]=="T"?"10":c[0]}</b><i>${SYM[c[1]]}</i></span>`;
+const $=id=>document.getElementById(id);
+const pt=(a,rx,ry)=>{const r=a*Math.PI/180;return{x:50+rx*Math.cos(r),y:50+ry*Math.sin(r)}};
+const fmt=x=>+(+x).toFixed(2);
+function drawTable(el,seats,center,clickable){
+  let h=`<div class="rail"></div><div class="felt"></div><div class="mark">6-MAX</div><div class="mid">${center}</div>`;
+  const d=pt(ANG.BTN-24,30,28);h+=`<div class="btnD" style="left:${d.x}%;top:${d.y}%">D</div>`;
+  for(const p of POS){const s=seats[p]||{},a=pt(ANG[p],45,41),c=pt(ANG[p],27,22);
+    h+=`<div class="seat ${s.cls||""} ${clickable?"":"static"}" data-p="${p}" style="left:${a.x}%;top:${a.y}%"><div class="av">${p}</div>${s.label?`<div class="tag">${s.label}</div>`:""}</div>`;
+    if(s.chip)h+=`<div class="chip ${s.chipCls||""}" style="left:${c.x}%;top:${c.y}%">${s.chip}</div>`;}
+  el.innerHTML=h;
+  if(clickable)el.querySelectorAll(".seat").forEach(e=>e.onclick=()=>clickable(e.dataset.p));
+}
+const stat=(k,v)=>`<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+
+// ------------------------------------------------------------ setup
+const ADV=[["stack_bb","起始籌碼 (bb)"],["open_size","開池尺度 (bb)"],["sb_open_size","小盲開池 (bb)"],["threebet_ip_mult","有位置 3-bet 倍數"],
+  ["threebet_oop_mult","沒位置 3-bet 倍數"],["fourbet_mult","4-bet 倍數"],["raise_cap","每街最多下注+加注"],["add_allin","加入全下 (true/false)"],
+  ["allin_threshold","自動轉全下比例"],["rake","抽水比例"],["rake_cap","抽水上限"],["iterations","最多迭代"],["target_exploitability","目標可剝削度 (% pot)"],
+  ["threads","執行緒 (0=自動)"],["export_streets","輸出街數"]];
+const SZ=[];for(const p of["oop","ip"])for(const k of["bet","raise"])for(const s of["flop","turn","river"])SZ.push(`${p}_${s}_${k}`);
+const DEF={matchup:"BTN vs BB",pot_type:"srp",board:"Qs Jh 2h",stack_bb:"100",open_size:"2.5",sb_open_size:"3",threebet_ip_mult:"3",threebet_oop_mult:"4",fourbet_mult:"2.2",
+  raise_cap:"2",add_allin:"false",allin_threshold:"0.67",rake:"0",rake_cap:"0",iterations:"200",target_exploitability:"0.5",threads:"0",export_streets:"1",
+  oop_flop_bet:"33",oop_flop_raise:"60",ip_flop_bet:"33, 75",ip_flop_raise:"60",oop_turn_bet:"66",oop_turn_raise:"60",ip_turn_bet:"66",ip_turn_raise:"60",
+  oop_river_bet:"66",oop_river_raise:"60",ip_river_bet:"66",ip_river_raise:"60"};
+let cfgText=null, cfg={...DEF}, seatsSel=[], potType="srp", board=[], server=false;
+
+function parseCfg(t){const m={};t.split(/\r?\n/).forEach(l=>{l=l.replace(/^﻿/,"");const h=l.indexOf("#"),s=h>=0?l.slice(0,h):l,e=s.indexOf("=");
+  if(e>=0)m[s.slice(0,e).trim().toLowerCase()]=s.slice(e+1).trim()});return m;}
+function setCfg(t,key,val){const L=t.split(/\r?\n/),re=new RegExp("^(\\s*"+key+"\\s*=\\s*)([^#]*?)(\\s*#.*)?$","i");let f=false;
+  for(let i=0;i<L.length&&!f;i++)if(re.test(L[i])){L[i]=L[i].replace(re,(a,p,v,c)=>p+val+(c?" ".repeat(Math.max(1,v.length+c.length-c.trimStart().length-val.length))+c.trimStart():""));f=true}
+  if(!f)L.push(`${key} = ${val}`);return L.join("\r\n");}
+
+function order(){return [...seatsSel].sort((a,b)=>POS.indexOf(a)-POS.indexOf(b));}
+function num(k){return parseFloat($("f_"+k)?.value??cfg[k]);}
+function potCalc(){
+  if(seatsSel.length<2)return null;
+  const [a,b]=order(),ia=POS.indexOf(a),ib=POS.indexOf(b),post=i=>i>=4?i-4:i+2,aOOP=post(ia)<post(ib);
+  const open=ia==4?num("sb_open_size"):num("open_size"),tb=open*(aOOP?num("threebet_ip_mult"):num("threebet_oop_mult")),fb=tb*num("fourbet_mult");
+  const x=potType=="srp"?open:potType=="3bp"?tb:fb,dead=(ia!=4&&ib!=4?0.5:0)+(ib!=5?1:0);
+  return{a,b,aOOP,open,tb,fb,x,dead,pot:2*x+dead,stack:num("stack_bb")-x,oop:aOOP?a:b,ip:aOOP?b:a};
+}
+function renderSetup(){
+  const P=potCalc(),seats={};
+  for(const p of POS)seats[p]=seatsSel.length==2?{cls:"fold",label:"棄牌"}:seatsSel.includes(p)?{cls:"opener",label:"已選"}:{cls:"empty",label:"點選"};
+  if(P){
+    if(P.a!="SB"&&P.b!="SB")seats.SB.chip="0.5";
+    if(P.b!="BB")seats.BB.chip="1";
+    const act={srp:["開池 "+fmt(P.open),"跟注"],"3bp":["跟注 3-bet","3-bet "+fmt(P.tb)],"4bp":["4-bet "+fmt(P.fb),"跟注 4-bet"]}[potType];
+    seats[P.a]={cls:"opener",label:`${act[0]} · ${P.aOOP?"OOP":"IP"}`,chip:fmt(P.x)};
+    seats[P.b]={cls:"caller",label:`${act[1]} · ${P.aOOP?"IP":"OOP"}`,chip:fmt(P.x)};
+  }
+  const center=`<div>${board.length?board.map(c=>cardHtml(c,"lg")).join(""):'<span class="slot"></span><span class="slot"></span><span class="slot"></span>'}</div><div class="potTag">底池 ${P?fmt(P.pot)+" bb":"—"}</div>`;
+  drawTable($("setupTbl"),seats,center,p=>{const i=seatsSel.indexOf(p);if(i>=0)seatsSel.splice(i,1);else{if(seatsSel.length==2)seatsSel.pop();seatsSel.push(p)}renderSetup()});
+  $("ptype").innerHTML="";
+  [["srp","單次加注 SRP"],["3bp","3-bet 底池"],["4bp","4-bet 底池"]].forEach(([k,t])=>{const b=document.createElement("button");b.textContent=t;b.className=potType==k?"on":"";b.onclick=()=>{potType=k;renderSetup()};$("ptype").appendChild(b)});
+  const m=cfgText?parseCfg(cfgText):{},ov=["pot","stack","range_oop","range_ip"].filter(k=>m[k]);
+  $("potInfo").innerHTML=P?stat("對決",`${P.a} <small>vs</small> ${P.b}`)+stat("底池",`${fmt(P.pot)} <small>bb</small>`)+stat("有效籌碼",`${fmt(P.stack)} <small>bb</small>`)+stat("SPR",fmt(P.stack/P.pot)):"";
+  $("potWarn").innerHTML=!P?'<div class="warn" style="margin-top:10px">請在左邊牌桌上點選兩個座位</div>':(P.stack<=0?'<div class="err" style="margin-top:8px">籌碼不足以打這種底池</div>':"")+(ov.length?`<div class="warn" style="margin-top:8px">注意：config.txt 有手動覆寫 ${ov.join(", ")}，會取代自動帶入的值</div>`:"");
+  let sl="";for(let i=0;i<5;i++){if(i==3||i==4)sl+='<span class="gap"></span>';sl+=board[i]?cardHtml(board[i]):'<span class="slot" style="width:30px;height:40px;border-color:#ffffff22"></span>';}
+  $("boardSlots").innerHTML=sl;
+  $("picker").querySelectorAll("button").forEach(b=>b.classList.toggle("used",board.includes(b.dataset.c)));
+}
+function buildPicker(){let h="";for(const s of SU)for(const r of RK)h+=`<button class="${s}" data-c="${r+s}">${r=="T"?"10":r}${SYM[s]}</button>`;$("picker").innerHTML=h;
+  $("picker").querySelectorAll("button").forEach(b=>b.onclick=()=>{const c=b.dataset.c,i=board.indexOf(c);if(i>=0)board.splice(i,1);else if(board.length<5)board.push(c);renderSetup()});}
+function buildAdv(){
+  let h='<table class="sz"><tr><th>下注尺度 (% pot)</th><th>翻牌</th><th>轉牌</th><th>河牌</th></tr>';
+  for(const p of["oop","ip"])for(const k of["bet","raise"])h+=`<tr><td>${p.toUpperCase()} ${k=="bet"?"下注":"加注"}</td>`+["flop","turn","river"].map(s=>`<td><input id="f_${p}_${s}_${k}"></td>`).join("")+"</tr>";
+  h+='</table><div class="info" style="font-size:12px;margin-top:4px">可用逗號填多個尺度，留空 = 不允許下注</div><div class="advg">';
+  ADV.forEach(([k,t])=>h+=`<div><label>${t}</label><input id="f_${k}"></div>`);
+  $("adv").innerHTML=h+"</div>";
+  for(const k of[...SZ,...ADV.map(a=>a[0])]){$("f_"+k).value=cfg[k]??"";$("f_"+k).oninput=renderSetup;}
+}
+function loadFromCfg(m){
+  cfg={...DEF,...m};
+  const mu=(cfg.matchup||"").toUpperCase().split(/\s*VS\s*/).map(s=>s.trim()).filter(s=>POS.includes(s));
+  seatsSel=mu.length==2?mu:[];potType=["srp","3bp","4bp"].includes((cfg.pot_type||"").toLowerCase())?cfg.pot_type.toLowerCase():"srp";
+  const t=(cfg.board||"").replace(/[\s,]/g,"");board=[];for(let i=0;i+1<t.length;i+=2)board.push(t[i].toUpperCase()+t[i+1].toLowerCase());
+  buildAdv();renderSetup();
+}
+function makeConfig(){
+  const P=potCalc();if(!P)throw"請先在牌桌上選兩個座位";if(board.length<3)throw"牌面至少要 3 張";if(P.stack<=0)throw"籌碼不足以打這種底池";
+  let t=cfgText||"# GTO 解算器設定檔（由六人桌介面產生）\r\nranges_file = ranges_6max.txt\r\ncompress = true\r\nisomorphism = true\r\ncheck_every = 10\r\noutput = result.js";
+  t=setCfg(t,"board",board.join(" "));t=setCfg(t,"matchup",`${P.a} vs ${P.b}`);t=setCfg(t,"pot_type",potType);
+  for(const k of[...SZ,...ADV.map(a=>a[0])])t=setCfg(t,k,$("f_"+k).value.trim());
+  return t;
+}
+$("rnd").onclick=()=>{const d=[];for(const s of SU)for(const r of RK)d.push(r+s);board=[];while(board.length<3){const c=d[Math.random()*52|0];if(!board.includes(c))board.push(c)}renderSetup()};
+$("clr").onclick=()=>{board=[];renderSetup()};
+$("dl").onclick=()=>{try{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+makeConfig().replace(/^﻿/,"")],{type:"text/plain"}));a.download="config.txt";a.click()}catch(e){$("srvMsg").textContent=e}};
+let poll=null;
+$("solve").onclick=async()=>{
+  let t;try{t=makeConfig()}catch(e){$("srvMsg").textContent=e;return}
+  if(!server){$("srvMsg").innerHTML="目前是直接開啟檔案，無法執行解算。請改用 <b>start.bat</b> 開啟，或按「下載 config.txt」覆蓋原檔後執行 <code>solver.exe config.txt</code>。";return}
+  $("srvMsg").textContent="";const r=await fetch("/api/solve",{method:"POST",body:t});
+  if(!r.ok){$("srvMsg").textContent=await r.text();return}
+  cfgText=t;const maxIt=num("iterations")||1;
+  $("solve").disabled=true;$("stop").disabled=false;$("log").hidden=false;$("prog").hidden=false;$("prog").firstChild.style.width="2%";$("log").textContent="啟動中…";
+  poll=setInterval(async()=>{const s=await (await fetch("/api/status")).json();$("log").textContent=s.log;$("log").scrollTop=1e9;
+    const its=[...s.log.matchAll(/iter\s+(\d+)/g)];if(its.length)$("prog").firstChild.style.width=Math.min(100,its.at(-1)[1]/maxIt*100)+"%";
+    if(!s.running){clearInterval(poll);$("solve").disabled=false;$("stop").disabled=true;
+      if(s.exit===0){$("prog").firstChild.style.width="100%";$("srvMsg").innerHTML='<span style="color:var(--green)">✔ 解算完成</span>';reloadResult()}else $("srvMsg").innerHTML='<span class="err">解算失敗或已停止（見下方訊息）</span>';}},600);
+};
+$("stop").onclick=()=>fetch("/api/stop",{method:"POST"});
+function reloadResult(){const s=document.createElement("script");s.src="result.js?t="+Date.now();s.onload=()=>{R=window.RESULT;path=[];sel=null;render();$("info").scrollIntoView({behavior:"smooth"})};document.body.appendChild(s);}
+buildPicker();
+fetch("/api/config").then(r=>{if(!r.ok)throw 0;return r.text()}).then(t=>{server=true;cfgText=t;$("dot").className="dot on";$("srvTxt").textContent="本機解算器已連線";loadFromCfg(parseCfg(t))})
+  .catch(()=>{$("srvTxt").textContent="離線模式（只能瀏覽結果）";$("srvMsg").innerHTML="提示：用 <b>start.bat</b> 開啟可直接在此頁按「開始解算」。";loadFromCfg({})});
+
+// ------------------------------------------------------------ result viewer
+let R=window.RESULT, path=[], sel=null;
+const nm=()=>R&&R.names&&R.names[0]!="OOP"?[`${R.names[0]}`,`${R.names[1]}`]:["OOP","IP"];
+function colors(A){let nb=A.filter(a=>/Bet|Raise|All/.test(a)).length,i=0;
+  return A.map(a=>a=="Fold"?"#4e8fe0":/Check|Call/.test(a)?"#3fb771":`hsl(${nb>1?32-32*(i++)/(nb-1):10},85%,${58-9*(i)}%)`);}
+const zh=a=>a.replace("Fold","棄牌").replace("Check","過牌").replace("Call","跟注").replace("Bet","下注").replace("Raise","加注到").replace("All-in","全下");
+function cls(h){let r1=h[0],s1=h[1],r2=h[2],s2=h[3];if(RK.indexOf(r1)>RK.indexOf(r2))[r1,r2]=[r2,r1];return r1==r2?r1+r2:r1+r2+(s1==s2?"s":"o");}
+function walk(){let n=R.root,labels=[],board=[...R.board],last={},pot=R.pot,folded=-1;const NM=nm();
+  for(const i of path){if(n.t=="a"){labels.push(NM[n.p]+" "+zh(n.A[i]));last[n.p]=zh(n.A[i]);pot=n.pot;if(n.A[i]=="Fold")folded=n.p}else{labels.push(n.cards[i]);board.push(n.cards[i]);last={}}n=n.ch[i];}
+  if(n.t=="a")pot=n.pot;return{n,labels,board,last,pot,folded};}
+function render(){
+  if(!R){$("info").innerHTML='<div class="empty">尚無結果（result.js），請先在上方解算。</div>';return;}
+  const NM=nm(),{n,labels,board,last,pot,folded}=walk();
+  $("resHint").textContent=`${NM[0]} (OOP) vs ${NM[1]} (IP)`;
+  info.innerHTML=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="info" style="margin-right:6px">起始牌面</span>${R.board.map(c=>cardHtml(c)).join("")}</div><div class="stats">`+
+    stat("起始底池",`${R.pot} <small>bb</small>`)+stat("有效籌碼",`${R.stack} <small>bb</small>`)+stat("迭代次數",R.iterations)+
+    stat("可剝削度",`${(R.exploitability/R.pot*100).toFixed(3)}<small>% pot</small>`)+stat(`EV ${NM[0]} (OOP)`,`${R.ev[0].toFixed(2)} <small>bb</small>`)+stat(`EV ${NM[1]} (IP)`,`${R.ev[1].toFixed(2)} <small>bb</small>`)+"</div>";
+  const center=`<div>${board.map(c=>cardHtml(c,"lg")).join("")}</div><div class="potTag">底池 ${fmt(pot)} bb</div>`;
+  if(POS.includes(R.names[0])&&POS.includes(R.names[1])){
+    const seats={};POS.forEach(p=>seats[p]={cls:"fold"});
+    [0,1].forEach(p=>seats[R.names[p]]={cls:(p?"caller":"opener")+(n.t=="a"&&n.p==p?" act":"")+(folded==p?" fold":""),label:p?"IP":"OOP",chip:last[p],chipCls:"act"});
+    drawTable($("resTbl"),seats,center,null);
+  } else $("resTbl").innerHTML=`<div class="rail"></div><div class="felt"></div><div class="mid">${center}</div>`;
+  crumb.innerHTML=(labels.length?labels:["起點"]).map(l=>`<span>${/^[2-9TJQKA][shdc]$/.test(l)?cardHtml(l,"sm"):l}</span>`).join("");back.disabled=!path.length;
+  acts.innerHTML="";grid.innerHTML="";side.innerHTML="";$("mix").hidden=true;
+  if(n.t=="f"||n.t=="s"||(n.t=="c"&&n.x)){head.innerHTML=n.t=="f"?"<b>棄牌</b>，牌局結束":n.t=="s"?"<b>攤牌</b>":"發下一張牌（此街未輸出；將「輸出街數」調高後重新解算即可瀏覽）";
+    side.innerHTML='<div class="empty">此節點沒有策略可顯示</div>';return;}
+  if(n.t=="c"){head.innerHTML="<b>選擇發出的牌</b>"+(n.iso&&n.iso.length?`<div class="info" style="font-size:12px;margin-top:4px">花色同構已合併：${n.iso.map(x=>x[0]+"≡"+x[1]).join("、")}（策略相同只是花色互換）</div>`:"");
+    const d=document.createElement("div");d.className="dealt";n.cards.forEach((c,i)=>{const b=document.createElement("button");b.innerHTML=cardHtml(c);b.onclick=()=>{path.push(i);sel=null;render()};d.appendChild(b)});acts.appendChild(d);
+    side.innerHTML='<div class="empty">請先選擇發出的牌</div>';return;}
+  const hands=R.hands[n.p],col=colors(n.A),reach=n.r||R.weights[n.p];
+  let tot=0,fr=n.A.map(()=>0);hands.forEach((h,i)=>{tot+=reach[i];n.A.forEach((a,k)=>fr[k]+=reach[i]*n.S[k][i])});
+  head.innerHTML=`輪到 <b style="color:${n.p?"#9fd2ff":"var(--acc2)"}">${NM[n.p]} (${n.p?"IP":"OOP"})</b> 行動　·　底池 ${n.pot} bb　·　範圍 ${tot.toFixed(1)} 組合`;
+  $("mix").hidden=false;$("mix").innerHTML=n.A.map((a,k)=>`<div style="width:${tot?fr[k]/tot*100:0}%;background:${col[k]}"></div>`).join("");
+  const box=document.createElement("div");box.className="acts";
+  n.A.forEach((a,k)=>{const p=tot?fr[k]/tot*100:0,b=document.createElement("button");b.className="abtn";
+    b.innerHTML=`<span class="bar" style="width:${p}%;background:${col[k]}"></span><span class="sw" style="background:${col[k]}"></span><span class="nm">${zh(a)}</span><span class="pc">${p.toFixed(1)}%</span>`;
+    b.onclick=()=>{path.push(k);sel=null;render()};box.appendChild(b)});acts.appendChild(box);
+  const g={};hands.forEach((h,i)=>{const c=cls(h);(g[c]=g[c]||[]).push(i)});
+  const maxc=c=>c.length==2?6:c[2]=="s"?4:12;
+  for(let i=0;i<13;i++)for(let j=0;j<13;j++){
+    const c=i==j?RK[i]+RK[j]:i<j?RK[i]+RK[j]+"s":RK[j]+RK[i]+"o",d=document.createElement("div");d.className="cell"+(i==j?" pair":"")+(sel==c?" sel":"");
+    let html=`<span>${c}</span>`;const ids=g[c]||[];let w=0,f=n.A.map(()=>0);ids.forEach(x=>{w+=reach[x];n.A.forEach((a,k)=>f[k]+=reach[x]*n.S[k][x])});
+    if(w>1e-6){html+=`<div class="fill" style="height:${Math.min(100,w/maxc(c)*100)}%">`+f.map((v,k)=>`<div style="width:${v/w*100}%;background:${col[k]}"></div>`).join("")+"</div>";}
+    d.innerHTML=html;d.title=c;d.onclick=()=>{sel=sel==c?null:c;render()};grid.appendChild(d);}
+  let rows=sel?(g[sel]||[]):hands.map((h,i)=>i).filter(i=>reach[i]>1e-4).sort((a,b)=>(n.ev?n.ev[b]-n.ev[a]:0)).slice(0,400);
+  side.innerHTML=`<div style="padding:10px 12px;display:flex;align-items:center;gap:8px" class="info">${sel?`<b style="color:var(--tx)">${sel}</b> 各組合`:"全部組合（依 EV 排序，點格子可篩選）"} ${sel?'<button onclick="sel=null;render()" style="margin-left:auto;padding:3px 9px">顯示全部</button>':""}</div><table class="cb"><tr><th>手牌</th><th>權重</th>${n.A.map((a,k)=>`<th><span class="sw" style="background:${col[k]};margin-right:4px"></span>${zh(a)}</th>`).join("")}<th>EV</th></tr>`+
+    rows.map(i=>`<tr><td>${cardHtml(hands[i].slice(0,2),"sm")}${cardHtml(hands[i].slice(2),"sm")}</td><td>${reach[i].toFixed(2)}</td>${n.A.map((a,k)=>`<td>${(n.S[k][i]*100).toFixed(0)}%</td>`).join("")}<td>${n.ev?n.ev[i].toFixed(2):"-"}</td></tr>`).join("")+"</table>";
+}
+back.onclick=()=>{path.pop();sel=null;render()};rootb.onclick=()=>{path=[];sel=null;render()};
+render();
+</script></body></html>
