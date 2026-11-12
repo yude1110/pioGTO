@@ -14,13 +14,22 @@ $listener = New-Object System.Net.HttpListener
 $port = 0
 foreach ($p in 8765..8785) {
     try { $listener.Prefixes.Clear(); $listener.Prefixes.Add("http://localhost:$p/"); $listener.Start(); $port = $p; break }
-    catch { $listener = New-Object System.Net.HttpListener }
+    catch { $lastErr = $_.Exception.Message; $listener = New-Object System.Net.HttpListener }
 }
-if (-not $port) { Write-Host 'No free port in 8765-8785.'; Read-Host 'Press Enter to exit'; exit 1 }
+if (-not $port) { Write-Host "Could not start the local web server on ports 8765-8785: $lastErr" -ForegroundColor Red; exit 1 }
 $url = "http://localhost:$port/"
-Write-Host "Solver UI running at $url  (close this window to stop)"
-Start-Process $url
+Write-Host "Solver UI running at $url  (keep this window open; close it to stop)" -ForegroundColor Green
+try { Start-Process $url } catch { Write-Host "Could not open a browser automatically - open $url yourself." -ForegroundColor Yellow }
 
+function JsonStr([string]$s) {  # ConvertTo-Json is missing on old PowerShell
+    $sb = New-Object System.Text.StringBuilder; [void]$sb.Append('"')
+    foreach ($ch in $s.ToCharArray()) {
+        $c = [int]$ch
+        if ($c -eq 34) { [void]$sb.Append('\"') } elseif ($c -eq 92) { [void]$sb.Append('\\') }
+        elseif ($c -lt 32) { [void]$sb.Append(('\u{0:x4}' -f $c)) } else { [void]$sb.Append($ch) }
+    }
+    [void]$sb.Append('"'); $sb.ToString()
+}
 function ReadShared($path) {
     if (-not (Test-Path $path)) { return '' }
     $fs = [IO.File]::Open($path, 'Open', 'Read', 'ReadWrite')
@@ -63,8 +72,18 @@ while ($listener.IsListening) {
             $run = Running
             $code = if ($run -or $null -eq $proc -or $null -eq $proc.ExitCode) { 'null' } else { [string]$proc.ExitCode }
             $log = (ReadShared $logPath) + (ReadShared $errPath)
-            $json = '{"running":' + $run.ToString().ToLower() + ',"exit":' + $code + ',"log":' + (ConvertTo-Json $log) + '}'
+            $json = '{"running":' + $run.ToString().ToLower() + ',"exit":' + $code + ',"log":' + (JsonStr $log) + '}'
             SendText $ctx 200 'application/json' $json
+        }
+        elseif ($path -eq '/api/ranges' -and $method -eq 'GET') {
+            SendText $ctx 200 'text/plain' ([IO.File]::ReadAllText((Join-Path $dir 'ranges_6max.txt')))
+        }
+        elseif ($path -eq '/api/ranges' -and $method -eq 'POST') {
+            $rf = Join-Path $dir 'ranges_6max.txt'; $bak = Join-Path $dir 'ranges_6max.original.txt'
+            if (-not (Test-Path $bak)) { Copy-Item $rf $bak }  # keep the shipped ranges once, for "restore"
+            $body = (New-Object IO.StreamReader($ctx.Request.InputStream, [Text.Encoding]::UTF8)).ReadToEnd()
+            [IO.File]::WriteAllText($rf, $body, $utf8)
+            SendText $ctx 200 'text/plain' 'saved'
         }
         elseif ($path -eq '/api/library') {
             $lib = Join-Path $dir 'library'; $parts = @()
@@ -93,7 +112,11 @@ while ($listener.IsListening) {
             $file = [IO.Path]::GetFullPath((Join-Path $dir $name))
             if ($file.StartsWith($dir, 'OrdinalIgnoreCase') -and (Test-Path $file -PathType Leaf)) {
                 $t = $types[[IO.Path]::GetExtension($file).ToLower()]; if (-not $t) { $t = 'application/octet-stream' }
-                Send $ctx 200 $t ([IO.File]::ReadAllBytes($file))
+                $len = (Get-Item $file).Length
+                if ($t -like 'application/javascript*' -and $len -gt 200MB) {
+                    # a browser cannot load a result this large; tell the page instead of hanging on it
+                    SendText $ctx 200 'application/javascript' ('window.RESULT=null;window.RESULT_TOO_BIG=' + [Math]::Round($len / 1MB) + ';')
+                } else { Send $ctx 200 $t ([IO.File]::ReadAllBytes($file)) }
             } else { SendText $ctx 404 'text/plain' 'not found' }
         }
     } catch {

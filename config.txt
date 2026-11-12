@@ -1,14 +1,14 @@
 ﻿# ===== GTO 解算器設定檔 =====  (# 之後為註解)
 # 牌面：3 張 = 從翻牌解，4 張 = 從轉牌解，5 張 = 只解河牌
-board = Qs Jh 2h
+board = Kc 9h 8h
 
 # ----- 六人桌對決設定 -----
 # 格式：開池者 vs 對手。位置：UTG, HJ, CO, BTN, SB, BB（開池者必須在對手之前行動）
-matchup  = BTN vs BB
+matchup  = UTG vs BB
 # 底池類型：srp = 單次加注底池（對手跟注）, 3bp = 對手 3-bet 開池者跟注, 4bp = 開池者 4-bet 對手跟注
 pot_type = srp
 stack_bb = 100                 # 翻前起始籌碼 (bb)
-open_size = 2.5                # 開池尺度 (bb)
+open_size = 2                  # 開池尺度 (bb)
 sb_open_size = 3               # 小盲開池尺度 (bb)
 threebet_ip_mult  = 3          # 有位置 3-bet = 開池尺度 x 此倍數
 threebet_oop_mult = 4          # 沒位置 3-bet = 開池尺度 x 此倍數
@@ -25,20 +25,20 @@ ranges_file = ranges_6max.txt  # 各位置翻前範圍（可自行修改）
 # range_ip  = 22+, A2s+, K6s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, ATo+, KTo+, QJo
 
 # 下注尺度（底池 %，可多個，以逗號分隔；留空 = 不允許下注）
-oop_flop_bet   = 33
-oop_flop_raise = 60
-ip_flop_bet    = 33, 75
-ip_flop_raise  = 60
+oop_flop_bet   = 33,49,76,124
+oop_flop_raise = 49
+ip_flop_bet    = 33,49,76,124
+ip_flop_raise  = 49
 
-oop_turn_bet   = 66
-oop_turn_raise = 60
-ip_turn_bet    = 66
-ip_turn_raise  = 60
+oop_turn_bet   = 33,49,76,124
+oop_turn_raise = 49
+ip_turn_bet    = 33,49,76,124
+ip_turn_raise  = 49
 
-oop_river_bet   = 66
-oop_river_raise = 60
-ip_river_bet    = 66
-ip_river_raise  = 60
+oop_river_bet   = 33,49,76,124
+oop_river_raise = 49
+ip_river_bet    = 33,49,76,124
+ip_river_raise  = 49
 
 # 每條街最多幾次下注+加注（1 = 只能下注不能加注，2 = 下注+加注...）
 raise_cap = 2
@@ -60,5 +60,5 @@ iterations = 200
 target_exploitability = 0.5    # 目標可剝削度（底池 %），達到即停止
 check_every = 10
 threads = 0                    # 0 = 自動
-export_streets = 1             # 輸出幾條街到瀏覽器（1 = 只輸出當前街；2 會大很多）
+export_streets = 2             # 輸出幾條街到瀏覽器（1 = 只輸出當前街；2 = 多約 180 倍；不要用 3，河牌會在瀏覽時即時解算）
 output = result.js

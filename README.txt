@@ -7,8 +7,8 @@
     3. 按「開始解算」，完成後下方直接顯示結果（牌桌上會標出目前行動者與每條街的動作）
   使用期間請保持 start.bat 開出的黑色視窗開著；關掉視窗即停止。
   介面上的設定會寫回 config.txt，所以也可以照下面的方式用指令列執行。
-  solver.exe 已編譯好（需支援 AVX2 的 CPU，約 2013 年後的 Intel/AMD 皆可）；
-  若換電腦無法執行，執行 build.bat 重新編譯即可。
+  solver.exe 已編譯好，任何 64 位元 Windows + x86 CPU 都能執行。
+  若某台電腦跑不起來，雙擊 check.bat，它會檢查環境並產生 check_result.txt，看裡面哪一項是 [FAIL]。
 
 【預解算資料庫（可放在其他電腦一直跑）】
   1. 把整個資料夾複製到要跑的電腦（只需要 solver.exe、ranges_6max.txt、presolve.txt、presolve.ps1、presolve.bat）
@@ -24,6 +24,12 @@
   參考（Ryzen 9 5900X / DDR4-2666）：每個翻牌約 1 分鐘、壓縮後約 5MB；一個情境約 30 小時、9GB。
   presolve.txt 的 parallel_jobs 控制同時跑幾個解算（預設自動），實測比單一解算用滿所有核心更快。
   要調整情境順序、下注尺度、精確度，請編輯 presolve.txt（改了解算參數建議換一個 library 資料夾名稱）。
+
+【翻前範圍編輯（例如照 GTO Wizard 調整）】
+  用 start.bat 開啟，選好兩個座位與底池類型後，下方「翻前範圍」會列出這個對決雙方實際使用的範圍。
+  可以用筆刷照圖點格子，或把範圍文字貼進文字框（AA,AKs:0.5 或 AKs: 72.5 這種百分比都可以），按「儲存範圍」。
+  開池範圍存成 rfi_位置；其他存成只針對這個對決的項目（例如 call_BB_vs_BTN），不影響別的對決。
+  第一次儲存時會備份原始檔為 ranges_6max.original.txt。
 
 【即時解算下一條街】
   用 start.bat 開啟時，瀏覽結果走到「此街未輸出」的發牌節點（例如轉牌結束要發河牌），

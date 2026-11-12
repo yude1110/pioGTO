@@ -118,6 +118,16 @@ table.cb{border-collapse:collapse;font-size:12px;width:100%}
 .cb td:first-child,.cb th:first-child{text-align:left}
 .cb tr:hover td{background:#ffffff08}
 .empty{padding:30px;text-align:center;color:var(--tx3)}
+.rng{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr));gap:16px;margin-top:6px}
+.rcard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px}
+.rcard h3{margin:0 0 2px;font-size:14px}.rcard .key{font:12px Consolas,monospace;color:var(--tx3)}
+.rgrid{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:2px;margin-top:10px;user-select:none;touch-action:none}
+.rc{aspect-ratio:1/0.8;border-radius:3px;font-size:10.5px;font-weight:700;color:#fff;position:relative;overflow:hidden;cursor:crosshair;background:#1c2029}
+.rc i{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(180deg,#f2a33a,#d9771f)}
+.rc span{position:relative;z-index:1;padding:2px 3px;display:block;text-shadow:0 1px 2px #000}
+.brush{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.brush button{padding:4px 9px;font-size:12px}.brush button.on{border-color:var(--acc);color:var(--acc2)}
+.rcard textarea{width:100%;min-height:64px;margin-top:8px;background:#0a0c10;color:var(--tx);border:1px solid var(--line2);border-radius:7px;font:12px/1.4 Consolas,monospace;padding:6px;resize:vertical}
 @media(max-width:700px){.wrapA{padding:0 12px 30px}.seat{width:74px}.av{width:44px;height:44px;font-size:12px}.tag{font-size:10px;padding:1px 5px}.card.lg{width:34px;height:46px}.card.lg b{font-size:16px}.card.lg i{font-size:14px}.slot{width:34px;height:46px}}
 </style></head><body><div class="wrapA">
 <header><div class="logo">♠</div><div><h1>六人桌 GTO 解算器</h1><div class="sub">Postflop heads-up solver · 6-max preflop ranges</div></div>
@@ -139,6 +149,14 @@ table.cb{border-collapse:collapse;font-size:12px;width:100%}
     <div class="prog" id="prog" hidden><div></div></div>
     <pre id="log" hidden></pre>
   </div>
+</div>
+
+<div class="panel" id="rngPanel" style="margin-top:16px" hidden>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b>翻前範圍</b><span class="info" id="rngHint"></span><span style="flex:1"></span>
+    <button id="rngSave" class="go" style="padding:7px 16px;font-size:13px" disabled>儲存範圍</button></div>
+  <div class="info" style="font-size:12px;margin-top:4px">可從 GTO Wizard 照圖用筆刷點格子（可拖曳），或在下方文字框貼上範圍文字（例如 <code>AA,AKs:0.5,KQo:0.25</code>，數字大於 1 視為百分比）。</div>
+  <div class="rng" id="rngCards"></div>
+  <div id="rngMsg" class="warn" style="margin-top:8px"></div>
 </div>
 
 <div class="sec"><div class="n">2</div><h2>解算結果</h2><span class="hint" id="resHint"></span></div>
@@ -182,7 +200,7 @@ const stat=(k,v)=>`<div class="stat"><div class="k">${k}</div><div class="v">${v
 const ADV=[["stack_bb","起始籌碼 (bb)"],["open_size","開池尺度 (bb)"],["sb_open_size","小盲開池 (bb)"],["threebet_ip_mult","有位置 3-bet 倍數"],
   ["threebet_oop_mult","沒位置 3-bet 倍數"],["fourbet_mult","4-bet 倍數"],["raise_cap","每街最多下注+加注"],["add_allin","加入全下 (true/false)"],
   ["allin_threshold","自動轉全下比例"],["rake","抽水比例"],["rake_cap","抽水上限"],["iterations","最多迭代"],["target_exploitability","目標可剝削度 (% pot)"],
-  ["threads","執行緒 (0=自動)"],["export_streets","輸出街數"]];
+  ["threads","執行緒 (0=自動)"],["export_streets","輸出街數 (1~2)"]];
 const SZ=[];for(const p of["oop","ip"])for(const k of["bet","raise"])for(const s of["flop","turn","river"])SZ.push(`${p}_${s}_${k}`);
 const DEF={matchup:"BTN vs BB",pot_type:"srp",board:"Qs Jh 2h",stack_bb:"100",open_size:"2.5",sb_open_size:"3",threebet_ip_mult:"3",threebet_oop_mult:"4",fourbet_mult:"2.2",
   raise_cap:"2",add_allin:"false",allin_threshold:"0.67",rake:"0",rake_cap:"0",iterations:"200",target_exploitability:"0.5",threads:"0",export_streets:"1",
@@ -225,8 +243,68 @@ function renderSetup(){
   let sl="";for(let i=0;i<5;i++){if(i==3||i==4)sl+='<span class="gap"></span>';sl+=board[i]?cardHtml(board[i]):'<span class="slot" style="width:30px;height:40px;border-color:#ffffff22"></span>';}
   $("boardSlots").innerHTML=sl;
   $("picker").querySelectorAll("button").forEach(b=>b.classList.toggle("used",board.includes(b.dataset.c)));
-  renderLib(P);
+  renderLib(P);renderRanges(P);
 }
+
+// ------------------------------------------------------------ preflop range editor (writes ranges_6max.txt)
+let rangesText=null,rngSig="",rngCards=[],brush=1,painting=false;
+const KIND={rfi:"開池範圍",call:"跟注開池範圍","3bet":"3-bet 範圍",callvs3bet:"跟注 3-bet 範圍","4bet":"4-bet 範圍",callvs4bet:"跟注 4-bet 範圍"};
+const CLS=[];for(let i=0;i<13;i++)for(let j=0;j<13;j++)CLS.push(i==j?RK[i]+RK[j]:i<j?RK[i]+RK[j]+"s":RK[j]+RK[i]+"o");
+const nCombos=c=>c.length==2?6:c[2]=="s"?4:12;
+// same token syntax as the solver: AA, AKs, AKo, AK, 22+, A2s+, 22-66, KTs-K7s, AhKh, with :weight (weights above 1 are read as percent)
+function parseRangeText(str){
+  const w={},sp={},ri=c=>R2.indexOf(c.toUpperCase()),hi=(a,b)=>R2[Math.max(a,b)]+R2[Math.min(a,b)];
+  const put=(r1,r2,t,v)=>{if(r1==r2){w[R2[r1]+R2[r1]]=v;return}const k=hi(r1,r2);if(t!="o")w[k+"s"]=v;if(t!="s")w[k+"o"]=v;};
+  const base=s=>{const b={r1:ri(s[0]),r2:ri(s[1]),t:(s[2]||"").toLowerCase()};if(b.r1<0||b.r2<0)throw"看不懂：「"+s+"」";if(b.r1<b.r2)[b.r1,b.r2]=[b.r2,b.r1];return b;};
+  for(let tok of str.replace(/[\r\n;]+/g,",").replace(/\s+/g,"").split(",")){
+    if(!tok)continue;let v=1;const c=tok.indexOf(":");if(c>=0){v=parseFloat(tok.slice(c+1));tok=tok.slice(0,c);if(isNaN(v))throw"權重看不懂：「"+tok+"」";if(v>1)v/=100;}
+    if(/^[2-9TJQKA][cdhs][2-9TJQKA][cdhs]$/i.test(tok)){const r1=ri(tok[0]),r2=ri(tok[2]),k=r1==r2?R2[r1]+R2[r1]:hi(r1,r2)+(tok[1]==tok[3]?"s":"o");sp[k]=(sp[k]||0)+v;continue;}
+    const d=tok.indexOf("-");
+    if(d>0){const x=base(tok.slice(0,d)),y=base(tok.slice(d+1));
+      if(x.r1==x.r2)for(let r=Math.min(x.r1,y.r1);r<=Math.max(x.r1,y.r1);r++)put(r,r,"",v);
+      else for(let r=Math.min(x.r2,y.r2);r<=Math.max(x.r2,y.r2);r++)put(x.r1,r,x.t,v);}
+    else if(tok.endsWith("+")){const x=base(tok.slice(0,-1));
+      if(x.r1==x.r2)for(let r=x.r1;r<=12;r++)put(r,r,"",v);else for(let r=x.r2;r<x.r1;r++)put(x.r1,r,x.t,v);}
+    else{const x=base(tok);put(x.r1,x.r2,x.t,v);}
+  }
+  for(const k in sp)w[k]=Math.min(1,sp[k]/nCombos(k));   // single combos are averaged into their hand class
+  return w;
+}
+const fmtRange=w=>CLS.filter(c=>w[c]>5e-4).map(c=>w[c]>=0.9995?c:c+":"+(+w[c].toFixed(3))).join(", ");
+function rangeLookup(P){
+  const rel=o=>o?"oop":"ip",m=parseCfg(rangesText||"");
+  const look=(kind,x,y,xOOP)=>{const c=[`${x}_vs_${y}`,`${x}_vs_${rel(!xOOP)}`,`${rel(xOOP)}_vs_${y}`,x,rel(xOOP)].map(k=>`${kind}_${k}`);
+    const found=c.find(k=>m[k.toLowerCase()]!==undefined);return{kind,pos:x,found,text:found?m[found.toLowerCase()]:"",save:kind=="rfi"?`rfi_${x}`:`${kind}_${x}_vs_${y}`};};
+  const K={srp:["rfi","call"],"3bp":["callvs3bet","3bet"],"4bp":["4bet","callvs4bet"]}[potType];
+  return[look(K[0],P.a,P.b,P.aOOP),look(K[1],P.b,P.a,!P.aOOP)];
+}
+function renderRanges(P){
+  const panel=$("rngPanel");if(!server||!P||rangesText===null){panel.hidden=true;return}
+  panel.hidden=false;const sig=`${P.a}|${P.b}|${potType}|${rangesText.length}`;if(sig==rngSig)return;rngSig=sig;
+  $("rngHint").textContent=`${P.a} vs ${P.b}・${{srp:"單次加注",["3bp"]:"3-bet",["4bp"]:"4-bet"}[potType]}底池 用到的兩個範圍`;$("rngMsg").textContent="";$("rngSave").disabled=true;
+  rngCards=rangeLookup(P).map(r=>{let w={};try{w=parseRangeText(r.text)}catch(e){}return{...r,w,orig:r.text}});
+  $("rngCards").innerHTML=rngCards.map((r,i)=>`<div class="rcard"><h3>${r.pos}・${KIND[r.kind]}</h3>
+    <div class="key">${r.found?`目前使用 ${r.found}${r.found!=r.save?"（通用範圍）":""}`:'<span class="err">範圍檔沒有這一項</span>'} → 儲存為 ${r.save}</div>
+    <div class="rgrid" data-i="${i}">${CLS.map(c=>`<div class="rc" data-c="${c}"><i></i><span>${c}</span></div>`).join("")}</div>
+    <div class="brush" data-i="${i}">筆刷 ${[1,.75,.5,.25,0].map(b=>`<button data-b="${b}" class="${b==brush?"on":""}">${b*100}%</button>`).join("")}
+      <span style="flex:1"></span><span class="info" id="rcnt${i}"></span><button data-act="reset">還原</button><button data-act="clear">清空</button></div>
+    <textarea id="rtxt${i}" spellcheck="false"></textarea></div>`).join("");
+  rngCards.forEach((r,i)=>{paintGrid(i);$("rtxt"+i).value=fmtRange(r.w);
+    $("rtxt"+i).oninput=e=>{try{r.w=parseRangeText(e.target.value);$("rngMsg").textContent="";paintGrid(i);dirty()}catch(x){$("rngMsg").textContent=x}};});
+  document.querySelectorAll(".rgrid").forEach(g=>{const i=+g.dataset.i,hit=e=>{const el=document.elementFromPoint(e.clientX,e.clientY)?.closest(".rc");
+      if(el&&g.contains(el)){rngCards[i].w[el.dataset.c]=brush;paintGrid(i);$("rtxt"+i).value=fmtRange(rngCards[i].w);dirty()}};
+    g.onpointerdown=e=>{painting=true;g.setPointerCapture(e.pointerId);hit(e)};g.onpointermove=e=>{if(painting)hit(e)};g.onpointerup=()=>painting=false;});
+  document.querySelectorAll(".brush").forEach(bx=>bx.onclick=e=>{const b=e.target.closest("button");if(!b)return;const i=+bx.dataset.i,r=rngCards[i];
+    if(b.dataset.b!==undefined){brush=+b.dataset.b;document.querySelectorAll(".brush button[data-b]").forEach(x=>x.classList.toggle("on",+x.dataset.b==brush));return}
+    r.w=b.dataset.act=="clear"?{}:(()=>{try{return parseRangeText(r.orig)}catch(x){return{}}})();$("rtxt"+i).value=fmtRange(r.w);paintGrid(i);dirty();});
+}
+function paintGrid(i){const r=rngCards[i];let n=0;
+  document.querySelectorAll(`.rgrid[data-i="${i}"] .rc`).forEach(el=>{const v=r.w[el.dataset.c]||0;n+=v*nCombos(el.dataset.c);el.firstChild.style.height=v*100+"%"});
+  $("rcnt"+i).textContent=`${n.toFixed(1)} 組合（${(n/13.26).toFixed(1)}%）`;}
+function dirty(){$("rngSave").disabled=false;$("rngMsg").textContent="尚未儲存";}
+$("rngSave").onclick=async()=>{let t=rangesText;for(const r of rngCards)t=setCfg(t,r.save,fmtRange(r.w));
+  const res=await fetch("/api/ranges",{method:"POST",body:t});if(!res.ok){$("rngMsg").textContent="儲存失敗："+await res.text();return}
+  rangesText=t;rngSig="";renderSetup();$("rngMsg").innerHTML='<span style="color:var(--green)">✔ 已儲存到 ranges_6max.txt，下次解算就會使用</span>';};
 
 // ------------------------------------------------------------ presolved library (library/<A>_vs_<B>_<type>/<flop>.js, written by presolve.bat)
 const R2="23456789TJQKA",S2="cdhs",PERMS=[];
@@ -275,6 +353,7 @@ function loadFromCfg(m){
 }
 function makeConfig(){
   const P=potCalc();if(!P)throw"請先在牌桌上選兩個座位";if(board.length<3)throw"牌面至少要 3 張";if(P.stack<=0)throw"籌碼不足以打這種底池";
+  if(+$("f_export_streets").value>2)throw"輸出街數最多 2：輸出到河牌的檔案會有好幾 GB，瀏覽器開不了。河牌在瀏覽結果時點牌即可即時解算。";
   let t=cfgText||"# GTO 解算器設定檔（由六人桌介面產生）\r\nranges_file = ranges_6max.txt\r\ncompress = true\r\nisomorphism = true\r\ncheck_every = 10\r\noutput = result.js";
   t=setCfg(t,"board",board.join(" "));t=setCfg(t,"matchup",`${P.a} vs ${P.b}`);t=setCfg(t,"pot_type",potType);
   for(const k of[...SZ,...ADV.map(a=>a[0])])t=setCfg(t,k,$("f_"+k).value.trim());
@@ -299,7 +378,7 @@ $("solve").onclick=async()=>{
 $("stop").onclick=()=>fetch("/api/stop",{method:"POST"});
 function reloadResult(){const s=document.createElement("script");s.src="result.js?t="+Date.now();s.onload=()=>setResult(window.RESULT);document.body.appendChild(s);}
 buildPicker();
-fetch("/api/config").then(r=>{if(!r.ok)throw 0;return r.text()}).then(t=>{server=true;cfgText=t;$("dot").className="dot on";$("srvTxt").textContent="本機解算器已連線";loadFromCfg(parseCfg(t));return fetch("/api/library").then(r=>r.json()).then(j=>{libCounts=j;renderSetup()})})
+fetch("/api/config").then(r=>{if(!r.ok)throw 0;return r.text()}).then(t=>{server=true;cfgText=t;$("dot").className="dot on";$("srvTxt").textContent="本機解算器已連線";loadFromCfg(parseCfg(t));fetch("/api/ranges").then(r=>r.text()).then(x=>{rangesText=x;renderSetup()});return fetch("/api/library").then(r=>r.json()).then(j=>{libCounts=j;renderSetup()})})
   .catch(()=>{$("srvTxt").textContent="離線模式（只能瀏覽結果）";$("srvMsg").innerHTML="提示：用 <b>start.bat</b> 開啟可直接在此頁按「開始解算」。";loadFromCfg({})});
 
 // ------------------------------------------------------------ result viewer
@@ -329,7 +408,8 @@ async function subSolve(board,pot,reach,card,labels){
   frames.push({R,path:[...path],prefix});prefix=[...prefix,...labels,card];R=sub;path=[];sel=null;render();
 }
 function render(){
-  if(!R){$("info").innerHTML='<div class="empty">尚無結果（result.js），請先在上方解算。</div>';return;}
+  if(!R){$("info").innerHTML=window.RESULT_TOO_BIG?`<div class="empty err">上次的結果檔有 ${window.RESULT_TOO_BIG} MB，瀏覽器無法開啟。<br>請在「進階設定」把輸出街數設為 1 或 2 後重新解算（河牌會在瀏覽時即時解算）。</div>`:'<div class="empty">尚無結果（result.js），請先在上方解算。</div>';
+    ["grid","side","acts","head","crumb","resTbl"].forEach(i=>$(i).innerHTML="");$("mix").hidden=true;return;}
   const NM=nm(),{n,labels,board,last,pot,folded,reach:rch}=walk();
   $("resHint").textContent=`${NM[0]} (OOP) vs ${NM[1]} (IP)`;
   info.innerHTML=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="info" style="margin-right:6px">起始牌面</span>${R.board.map(c=>cardHtml(c)).join("")}</div><div class="stats">`+

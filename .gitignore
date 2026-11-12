@@ -6,3 +6,6 @@ sub_config.txt
 sub_result.js
 sub.log
 sub.err
+check_result.txt
+_check*
+ranges_6max.original.txt
