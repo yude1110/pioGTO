@@ -2,3 +2,7 @@ solve.log
 solve.err
 .claude/
 library/
+sub_config.txt
+sub_result.js
+sub.log
+sub.err

@@ -1,4 +1,4 @@
-# ===== 預解算設定 =====  (# 之後為註解)
+﻿# ===== 預解算設定 =====  (# 之後為註解)
 # 雙擊 presolve.bat 開始；隨時可關閉，下次開啟會從中斷處繼續（已算好的會跳過）。
 # 結果存在 library\<對決>_<底池類型>\<翻牌>.js，把整個 library 資料夾複製到其他電腦即可用 start.bat 瀏覽。
 
@@ -19,6 +19,8 @@ flops = all
 library = library              # 結果資料夾
 priority = BelowNormal         # 解算程式優先權（BelowNormal = 不影響電腦其他工作；Normal = 全速）
 keep_awake = true              # 執行期間防止電腦進入睡眠
+parallel_jobs = 0              # 同時跑幾個解算（0 = 自動：總執行緒 / 8）。實測同時跑多個比一個用滿全部核心更快
+gzip = true                    # 結果用 gzip 壓縮存檔（約縮小 3~4 倍，介面會自動解壓）
 
 # ----- 以下是解算參數（與 config.txt 相同語法），改了之後建議換一個 library 資料夾 -----
 stack_bb = 100
@@ -53,5 +55,6 @@ compress = true
 iterations = 300
 target_exploitability = 0.5    # 每個翻牌算到此可剝削度 (% pot) 即停止
 check_every = 10
-threads = 0                    # 0 = 用全部核心
-export_streets = 1             # 1 = 只存翻牌策略（約 100KB/翻牌）；2 = 連轉牌都存（約大 50 倍）
+threads = 0                    # 全部解算加起來用幾個執行緒（0 = 全部核心）
+export_streets = 2             # 1 = 只存翻牌（約 100KB/翻牌）；2 = 存到轉牌（壓縮後約 5MB/翻牌，一個情境約 9GB）
+                               # 河牌不需預存：介面瀏覽到河牌時會即時解算（約 1 秒）

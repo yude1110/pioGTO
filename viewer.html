@@ -242,17 +242,19 @@ function renderLib(P){
   const box=$("libBox");if(!server||!P){box.hidden=true;return}
   const dir=spotDir(P),n=libCounts?.[dir]||0;box.hidden=false;box.className="lib";
   if(board.length!=3){box.innerHTML=`📚 預解算資料庫 ${dir}：${n}/1755 個翻牌<div class="meter"><div style="width:${n/17.55}%"></div></div><span style="font-size:12px">（只收錄翻牌，轉牌/河牌請直接解算）</span>`;return}
-  const cf=canonFlop(board),url=`library/${dir}/${cf.name}.js`;
-  const show=()=>{if(libHas[url]){box.className="lib hit";box.innerHTML=`📚 資料庫已有這個翻牌（${dir}），不用等待`;const b=document.createElement("button");b.className="go";b.style.cssText="padding:7px 16px;font-size:13px;margin-left:auto";b.textContent="立即載入";b.onclick=()=>loadLib(url,cf.perm);box.appendChild(b)}
+  const cf=canonFlop(board),key=`library/${dir}/${cf.name}`;
+  const show=()=>{const url=libHas[key];if(url){box.className="lib hit";box.innerHTML=`📚 資料庫已有這個翻牌（${dir}），不用等待`;const b=document.createElement("button");b.className="go";b.style.cssText="padding:7px 16px;font-size:13px;margin-left:auto";b.textContent="立即載入";b.onclick=()=>loadLib(url,cf.perm);box.appendChild(b)}
     else box.innerHTML=`📚 資料庫尚未收錄此翻牌（${dir} 已有 ${n}/1755）<div class="meter"><div style="width:${n/17.55}%"></div></div>`;};
-  if(url in libHas)show();else{box.innerHTML="📚 查詢資料庫…";fetch(url,{method:"HEAD"}).then(r=>{libHas[url]=r.ok;show()}).catch(()=>{libHas[url]=false;show()})}
+  if(key in libHas)show();else{box.innerHTML="📚 查詢資料庫…";
+    const head=u=>fetch(u,{method:"HEAD"}).then(r=>r.ok?u:"").catch(()=>"");
+    head(key+".js.gz").then(u=>u||head(key+".js")).then(u=>{libHas[key]=u;show()})}
 }
 async function loadLib(url,perm){
-  const t=await (await fetch(url)).text();const w={};new Function("window",t)(w);const r=w.RESULT;
+  const res=await fetch(url),t=url.endsWith(".gz")?await new Response(res.body.pipeThrough(new DecompressionStream("gzip"))).text():await res.text();const w={};new Function("window",t)(w);const r=w.RESULT;
   const inv=[];perm.forEach((c,a)=>inv[c]=a);const m=c=>c[0]+S2[inv[S2.indexOf(c[1])]];   // library suits -> the board you picked
   r.board=r.board.map(m);r.hands=r.hands.map(hs=>hs.map(h=>m(h.slice(0,2))+m(h.slice(2))));
   (function fix(n){if(!n)return;if(n.t=="c"&&n.cards){n.cards=n.cards.map(m);n.iso=(n.iso||[]).map(x=>x.map(m))}(n.ch||[]).forEach(fix)})(r.root);
-  R=r;path=[];sel=null;render();$("info").scrollIntoView({behavior:"smooth"});
+  setResult(r);
 }
 function buildPicker(){let h="";for(const s of SU)for(const r of RK)h+=`<button class="${s}" data-c="${r+s}">${r=="T"?"10":r}${SYM[s]}</button>`;$("picker").innerHTML=h;
   $("picker").querySelectorAll("button").forEach(b=>b.onclick=()=>{const c=b.dataset.c,i=board.indexOf(c);if(i>=0)board.splice(i,1);else if(board.length<5)board.push(c);renderSetup()});}
@@ -295,27 +297,43 @@ $("solve").onclick=async()=>{
       if(s.exit===0){$("prog").firstChild.style.width="100%";$("srvMsg").innerHTML='<span style="color:var(--green)">✔ 解算完成</span>';reloadResult()}else $("srvMsg").innerHTML='<span class="err">解算失敗或已停止（見下方訊息）</span>';}},600);
 };
 $("stop").onclick=()=>fetch("/api/stop",{method:"POST"});
-function reloadResult(){const s=document.createElement("script");s.src="result.js?t="+Date.now();s.onload=()=>{R=window.RESULT;path=[];sel=null;render();$("info").scrollIntoView({behavior:"smooth"})};document.body.appendChild(s);}
+function reloadResult(){const s=document.createElement("script");s.src="result.js?t="+Date.now();s.onload=()=>setResult(window.RESULT);document.body.appendChild(s);}
 buildPicker();
 fetch("/api/config").then(r=>{if(!r.ok)throw 0;return r.text()}).then(t=>{server=true;cfgText=t;$("dot").className="dot on";$("srvTxt").textContent="本機解算器已連線";loadFromCfg(parseCfg(t));return fetch("/api/library").then(r=>r.json()).then(j=>{libCounts=j;renderSetup()})})
   .catch(()=>{$("srvTxt").textContent="離線模式（只能瀏覽結果）";$("srvMsg").innerHTML="提示：用 <b>start.bat</b> 開啟可直接在此頁按「開始解算」。";loadFromCfg({})});
 
 // ------------------------------------------------------------ result viewer
-let R=window.RESULT, path=[], sel=null;
+let R=window.RESULT, path=[], sel=null, frames=[], prefix=[];
+function setResult(r){R=r;path=[];sel=null;frames=[];prefix=[];render();$("info").scrollIntoView({behavior:"smooth"})}
 const nm=()=>R&&R.names&&R.names[0]!="OOP"?[`${R.names[0]}`,`${R.names[1]}`]:["OOP","IP"];
 function colors(A){let nb=A.filter(a=>/Bet|Raise|All/.test(a)).length,i=0;
   return A.map(a=>a=="Fold"?"#4e8fe0":/Check|Call/.test(a)?"#3fb771":`hsl(${nb>1?32-32*(i++)/(nb-1):10},85%,${58-9*(i)}%)`);}
 const zh=a=>a.replace("Fold","棄牌").replace("Check","過牌").replace("Call","跟注").replace("Bet","下注").replace("Raise","加注到").replace("All-in","全下");
 function cls(h){let r1=h[0],s1=h[1],r2=h[2],s2=h[3];if(RK.indexOf(r1)>RK.indexOf(r2))[r1,r2]=[r2,r1];return r1==r2?r1+r2:r1+r2+(s1==s2?"s":"o");}
-function walk(){let n=R.root,labels=[],board=[...R.board],last={},pot=R.pot,folded=-1;const NM=nm();
-  for(const i of path){if(n.t=="a"){labels.push(NM[n.p]+" "+zh(n.A[i]));last[n.p]=zh(n.A[i]);pot=n.pot;if(n.A[i]=="Fold")folded=n.p}else{labels.push(n.cards[i]);board.push(n.cards[i]);last={}}n=n.ch[i];}
-  if(n.t=="a")pot=n.pot;return{n,labels,board,last,pot,folded};}
+// follows path; also tracks both players' range weights (start range x chosen-action frequencies) for live sub-solves
+function walk(){let n=R.root,labels=[],board=[...R.board],last={},pot=R.pot,folded=-1;const NM=nm(),reach=[R.weights[0].slice(),R.weights[1].slice()];
+  for(const i of path){
+    if(n.t=="a"){const a=n.A[i];labels.push(NM[n.p]+" "+zh(a));last[n.p]=zh(a);pot=n.pot+(a.startsWith("Call")?parseFloat(a.slice(5)):0);if(a=="Fold")folded=n.p;
+      reach[n.p]=reach[n.p].map((w,h)=>w*n.S[i][h]);}
+    else{const c=n.cards[i];labels.push(c);board.push(c);last={};[0,1].forEach(p=>R.hands[p].forEach((h,k)=>{if(h.includes(c))reach[p][k]=0}));}
+    n=n.ch[i];}
+  if(n.t=="a")pot=n.pot;return{n,labels,board,last,pot,folded,reach};}
+async function subSolve(board,pot,reach,card,labels){
+  const rs=p=>R.hands[p].map((h,k)=>reach[p][k]>1e-4?`${h}:${+reach[p][k].toPrecision(4)}`:"").filter(Boolean).join(",");
+  let t=cfgText||"";
+  for(const[k,v]of[["board",[...board,card].join(" ")],["matchup",""],["pot",fmt(pot)],["stack",fmt(R.stack-(pot-R.pot)/2)],["range_oop",rs(0)],["range_ip",rs(1)],["export_streets","1"],["threads","0"]])t=setCfg(t,k,v);
+  head.innerHTML=`<b>即時解算 ${cardHtml(card,"sm")} 中…</b>（河牌通常 1 秒內，轉牌約數秒到數十秒）`;acts.innerHTML="";
+  const r=await fetch("/api/subsolve",{method:"POST",body:t}),txt=await r.text();
+  if(!r.ok){head.innerHTML=`<span class="err">即時解算失敗</span><pre>${txt.replace(/</g,"&lt;")}</pre>`;return}
+  const w={};new Function("window",txt)(w);const sub=w.RESULT;sub.names=R.names;
+  frames.push({R,path:[...path],prefix});prefix=[...prefix,...labels,card];R=sub;path=[];sel=null;render();
+}
 function render(){
   if(!R){$("info").innerHTML='<div class="empty">尚無結果（result.js），請先在上方解算。</div>';return;}
-  const NM=nm(),{n,labels,board,last,pot,folded}=walk();
+  const NM=nm(),{n,labels,board,last,pot,folded,reach:rch}=walk();
   $("resHint").textContent=`${NM[0]} (OOP) vs ${NM[1]} (IP)`;
   info.innerHTML=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="info" style="margin-right:6px">起始牌面</span>${R.board.map(c=>cardHtml(c)).join("")}</div><div class="stats">`+
-    stat("起始底池",`${R.pot} <small>bb</small>`)+stat("有效籌碼",`${R.stack} <small>bb</small>`)+stat("迭代次數",R.iterations)+
+    (frames.length?stat("來源","即時解算 <small>上一街延伸</small>"):"")+stat("起始底池",`${R.pot} <small>bb</small>`)+stat("有效籌碼",`${R.stack} <small>bb</small>`)+stat("迭代次數",R.iterations)+
     stat("可剝削度",`${(R.exploitability/R.pot*100).toFixed(3)}<small>% pot</small>`)+stat(`EV ${NM[0]} (OOP)`,`${R.ev[0].toFixed(2)} <small>bb</small>`)+stat(`EV ${NM[1]} (IP)`,`${R.ev[1].toFixed(2)} <small>bb</small>`)+"</div>";
   const center=`<div>${board.map(c=>cardHtml(c,"lg")).join("")}</div><div class="potTag">底池 ${fmt(pot)} bb</div>`;
   if(POS.includes(R.names[0])&&POS.includes(R.names[1])){
@@ -323,9 +341,14 @@ function render(){
     [0,1].forEach(p=>seats[R.names[p]]={cls:(p?"caller":"opener")+(n.t=="a"&&n.p==p?" act":"")+(folded==p?" fold":""),label:p?"IP":"OOP",chip:last[p],chipCls:"act"});
     drawTable($("resTbl"),seats,center,null);
   } else $("resTbl").innerHTML=`<div class="rail"></div><div class="felt"></div><div class="mid">${center}</div>`;
-  crumb.innerHTML=(labels.length?labels:["起點"]).map(l=>`<span>${/^[2-9TJQKA][shdc]$/.test(l)?cardHtml(l,"sm"):l}</span>`).join("");back.disabled=!path.length;
+  const all=[...prefix,...labels];crumb.innerHTML=(all.length?all:["起點"]).map(l=>`<span>${/^[2-9TJQKA][shdc]$/.test(l)?cardHtml(l,"sm"):l}</span>`).join("");back.disabled=!path.length&&!frames.length;
   acts.innerHTML="";grid.innerHTML="";side.innerHTML="";$("mix").hidden=true;
-  if(n.t=="f"||n.t=="s"||(n.t=="c"&&n.x)){head.innerHTML=n.t=="f"?"<b>棄牌</b>，牌局結束":n.t=="s"?"<b>攤牌</b>":"發下一張牌（此街未輸出；將「輸出街數」調高後重新解算即可瀏覽）";
+  if(n.t=="c"&&n.x&&server&&R.stack-(pot-R.pot)/2>0.01){
+    head.innerHTML=`<b>選擇下一張牌</b>，即時解算這條街之後的策略 <span class="info" style="font-size:12px">（以目前雙方剩餘範圍、底池 ${fmt(pot)} bb）</span>`;
+    const d=document.createElement("div");d.className="dealt";
+    for(const s of SU)for(const r of RK){const c=r+s;if(board.includes(c))continue;const b=document.createElement("button");b.innerHTML=cardHtml(c);b.onclick=()=>subSolve(board,pot,rch,c,labels);d.appendChild(b)}
+    acts.appendChild(d);side.innerHTML='<div class="empty">點一張牌開始即時解算</div>';return;}
+  if(n.t=="f"||n.t=="s"||(n.t=="c"&&n.x)){head.innerHTML=n.t=="f"?"<b>棄牌</b>，牌局結束":n.t=="s"?"<b>攤牌</b>":R.stack-(pot-R.pot)/2<=0.01?"<b>已全下</b>，直接攤牌":"發下一張牌（此街未輸出；用 start.bat 開啟即可即時解算）";
     side.innerHTML='<div class="empty">此節點沒有策略可顯示</div>';return;}
   if(n.t=="c"){head.innerHTML="<b>選擇發出的牌</b>"+(n.iso&&n.iso.length?`<div class="info" style="font-size:12px;margin-top:4px">花色同構已合併：${n.iso.map(x=>x[0]+"≡"+x[1]).join("、")}（策略相同只是花色互換）</div>`:"");
     const d=document.createElement("div");d.className="dealt";n.cards.forEach((c,i)=>{const b=document.createElement("button");b.innerHTML=cardHtml(c);b.onclick=()=>{path.push(i);sel=null;render()};d.appendChild(b)});acts.appendChild(d);
@@ -349,6 +372,7 @@ function render(){
   side.innerHTML=`<div style="padding:10px 12px;display:flex;align-items:center;gap:8px" class="info">${sel?`<b style="color:var(--tx)">${sel}</b> 各組合`:"全部組合（依 EV 排序，點格子可篩選）"} ${sel?'<button onclick="sel=null;render()" style="margin-left:auto;padding:3px 9px">顯示全部</button>':""}</div><table class="cb"><tr><th>手牌</th><th>權重</th>${n.A.map((a,k)=>`<th><span class="sw" style="background:${col[k]};margin-right:4px"></span>${zh(a)}</th>`).join("")}<th>EV</th></tr>`+
     rows.map(i=>`<tr><td>${cardHtml(hands[i].slice(0,2),"sm")}${cardHtml(hands[i].slice(2),"sm")}</td><td>${reach[i].toFixed(2)}</td>${n.A.map((a,k)=>`<td>${(n.S[k][i]*100).toFixed(0)}%</td>`).join("")}<td>${n.ev?n.ev[i].toFixed(2):"-"}</td></tr>`).join("")+"</table>";
 }
-back.onclick=()=>{path.pop();sel=null;render()};rootb.onclick=()=>{path=[];sel=null;render()};
+back.onclick=()=>{if(path.length)path.pop();else if(frames.length)({R,path,prefix}=frames.pop());sel=null;render()};
+rootb.onclick=()=>{if(frames.length){({R}=frames[0]);frames=[];prefix=[]}path=[];sel=null;render()};
 render();
 </script></body></html>

@@ -68,8 +68,21 @@ while ($listener.IsListening) {
         }
         elseif ($path -eq '/api/library') {
             $lib = Join-Path $dir 'library'; $parts = @()
-            if (Test-Path $lib) { foreach ($d in Get-ChildItem $lib -Directory) { $parts += ('"{0}":{1}' -f $d.Name, @(Get-ChildItem $d.FullName -Filter '*.js').Count) } }
+            if (Test-Path $lib) { foreach ($d in Get-ChildItem $lib -Directory) { $parts += ('"{0}":{1}' -f $d.Name, @(Get-ChildItem $d.FullName -File | Where-Object { $_.Name -match '\.js(\.gz)?$' -and $_.Name -notlike '_*' }).Count) } }
             SendText $ctx 200 'application/json' ('{' + ($parts -join ',') + '}')
+        }
+        elseif ($path -eq '/api/subsolve' -and $method -eq 'POST') {
+            # solve the next street from a node of the current result (river is usually under a second)
+            $body = (New-Object IO.StreamReader($ctx.Request.InputStream, [Text.Encoding]::UTF8)).ReadToEnd()
+            $subCfg = Join-Path $dir 'sub_config.txt'; $subOut = Join-Path $dir 'sub_result.js'
+            [IO.File]::WriteAllText($subCfg, $body + "`r`noutput = sub_result.js`r`n", $utf8)
+            Remove-Item $subOut -ErrorAction SilentlyContinue
+            $sp = Start-Process -FilePath $exe -ArgumentList 'sub_config.txt' -WorkingDirectory $dir -NoNewWindow -PassThru `
+                -RedirectStandardOutput (Join-Path $dir 'sub.log') -RedirectStandardError (Join-Path $dir 'sub.err')
+            $null = $sp.Handle
+            if (-not $sp.WaitForExit(600000)) { $sp.Kill() }
+            if ($sp.ExitCode -eq 0 -and (Test-Path $subOut)) { Send $ctx 200 'application/javascript; charset=utf-8' ([IO.File]::ReadAllBytes($subOut)) }
+            else { SendText $ctx 500 'text/plain' ((ReadShared (Join-Path $dir 'sub.err')) + (ReadShared (Join-Path $dir 'sub.log'))) }
         }
         elseif ($path -eq '/api/stop' -and $method -eq 'POST') {
             if (Running) { $proc.Kill() }
