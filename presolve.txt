@@ -1,0 +1,57 @@
+# ===== 預解算設定 =====  (# 之後為註解)
+# 雙擊 presolve.bat 開始；隨時可關閉，下次開啟會從中斷處繼續（已算好的會跳過）。
+# 結果存在 library\<對決>_<底池類型>\<翻牌>.js，把整個 library 資料夾複製到其他電腦即可用 start.bat 瀏覽。
+
+# 要預解算的對決情境，依序處理（越上面越先算完）。格式：開池者 vs 對手 底池類型(srp/3bp/4bp)
+# 用 ; 或換行分隔都可以；不想算的刪掉或加 # 即可。
+spots = BTN vs BB srp; CO vs BB srp; SB vs BB srp; HJ vs BB srp; UTG vs BB srp
+spots = BTN vs SB srp; CO vs BTN srp; HJ vs BTN srp; UTG vs BTN srp; HJ vs CO srp; UTG vs CO srp; UTG vs HJ srp
+spots = CO vs SB srp; HJ vs SB srp; UTG vs SB srp
+spots = BTN vs BB 3bp; BTN vs SB 3bp; CO vs BTN 3bp; SB vs BB 3bp; CO vs BB 3bp; CO vs SB 3bp
+spots = HJ vs BTN 3bp; HJ vs CO 3bp; UTG vs BTN 3bp; HJ vs BB 3bp; UTG vs BB 3bp; HJ vs SB 3bp; UTG vs SB 3bp; UTG vs CO 3bp; UTG vs HJ 3bp
+spots = BTN vs BB 4bp; CO vs BTN 4bp; BTN vs SB 4bp; SB vs BB 4bp; CO vs BB 4bp; CO vs SB 4bp
+spots = HJ vs BTN 4bp; HJ vs CO 4bp; UTG vs BTN 4bp; HJ vs BB 4bp; UTG vs BB 4bp; HJ vs SB 4bp; UTG vs SB 4bp; UTG vs CO 4bp; UTG vs HJ 4bp
+
+# 翻牌：all = 全部 1755 種（花色同構後不重複的翻牌，任何翻牌都查得到）
+#       或直接列出，例如  flops = AsKd7c, Qs Jh 2h
+flops = all
+
+library = library              # 結果資料夾
+priority = BelowNormal         # 解算程式優先權（BelowNormal = 不影響電腦其他工作；Normal = 全速）
+keep_awake = true              # 執行期間防止電腦進入睡眠
+
+# ----- 以下是解算參數（與 config.txt 相同語法），改了之後建議換一個 library 資料夾 -----
+stack_bb = 100
+open_size = 2.5
+sb_open_size = 3
+threebet_ip_mult  = 3
+threebet_oop_mult = 4
+fourbet_mult = 2.2
+ranges_file = ranges_6max.txt
+
+oop_flop_bet   = 33
+oop_flop_raise = 60
+ip_flop_bet    = 33, 75
+ip_flop_raise  = 60
+oop_turn_bet   = 66
+oop_turn_raise = 60
+ip_turn_bet    = 66
+ip_turn_raise  = 60
+oop_river_bet   = 66
+oop_river_raise = 60
+ip_river_bet    = 66
+ip_river_raise  = 60
+
+raise_cap = 2
+add_allin = false
+allin_threshold = 0.67
+rake = 0
+rake_cap = 0
+isomorphism = true
+compress = true
+
+iterations = 300
+target_exploitability = 0.5    # 每個翻牌算到此可剝削度 (% pot) 即停止
+check_every = 10
+threads = 0                    # 0 = 用全部核心
+export_streets = 1             # 1 = 只存翻牌策略（約 100KB/翻牌）；2 = 連轉牌都存（約大 50 倍）

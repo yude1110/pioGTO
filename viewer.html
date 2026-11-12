@@ -76,6 +76,9 @@ input:focus{outline:none;border-color:var(--acc)}
 .picker button{padding:0;height:30px;font-size:12px;font-weight:800;background:#f3f5f8;border:2px solid transparent;border-radius:5px}
 .picker button:hover{background:#fff;transform:translateY(-1px)}
 .picker button.used{background:#3a2c14;border-color:var(--acc);color:var(--acc2)}
+.lib{margin-top:12px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:13px;color:var(--tx2);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.lib.hit{border-color:#3fb77188;background:#123222;color:#bfeccf}
+.lib .meter{flex:1;min-width:120px;height:6px;border-radius:99px;background:#ffffff14;overflow:hidden}.lib .meter div{height:100%;background:var(--green)}
 details{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
 details summary{cursor:pointer;color:var(--tx2);font-size:13px;list-style:none}
 details summary:before{content:"▸ ";color:var(--acc)}details[open] summary:before{content:"▾ "}
@@ -129,6 +132,7 @@ table.cb{border-collapse:collapse;font-size:12px;width:100%}
     <div class="lbl">牌面 <span style="text-transform:none;letter-spacing:0;font-weight:400">· 3 張 = 翻牌，4 張 = 轉牌，5 張 = 河牌</span></div>
     <div class="board"><div id="boardSlots" class="board"></div><span style="flex:1"></span><button id="rnd" class="ghost">🎲 隨機翻牌</button><button id="clr" class="ghost">清除</button></div>
     <div id="picker" class="picker"></div>
+    <div id="libBox" class="lib" hidden></div>
     <details><summary>進階設定（籌碼、下注尺度、迭代次數…）</summary><div id="adv"></div></details>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:16px"><button class="go" id="solve">開始解算</button><button id="stop" disabled>停止</button><button id="dl" class="ghost">下載 config.txt</button></div>
     <div id="srvMsg" class="warn" style="margin-top:8px"></div>
@@ -221,6 +225,34 @@ function renderSetup(){
   let sl="";for(let i=0;i<5;i++){if(i==3||i==4)sl+='<span class="gap"></span>';sl+=board[i]?cardHtml(board[i]):'<span class="slot" style="width:30px;height:40px;border-color:#ffffff22"></span>';}
   $("boardSlots").innerHTML=sl;
   $("picker").querySelectorAll("button").forEach(b=>b.classList.toggle("used",board.includes(b.dataset.c)));
+  renderLib(P);
+}
+
+// ------------------------------------------------------------ presolved library (library/<A>_vs_<B>_<type>/<flop>.js, written by presolve.bat)
+const R2="23456789TJQKA",S2="cdhs",PERMS=[];
+for(const a of[0,1,2,3])for(const b of[0,1,2,3])for(const c of[0,1,2,3])for(const d of[0,1,2,3])if(new Set([a,b,c,d]).size==4)PERMS.push([a,b,c,d]);
+const cIdx=c=>R2.indexOf(c[0])*4+S2.indexOf(c[1]), cStr=i=>R2[i>>2]+S2[i&3];
+// same rule as presolve.ps1: the suit permutation giving the smallest key names the flop
+function canonFlop(cards){let best=null,bp=null;
+  for(const p of PERMS){const v=cards.map(c=>{const i=cIdx(c);return(i&~3)|p[i&3]}).sort((x,y)=>y-x),k=v[0]*2704+v[1]*52+v[2];if(best===null||k<best){best=k;bp=p}}
+  return{name:cStr(best/2704|0)+cStr((best/52|0)%52)+cStr(best%52),perm:bp};}
+let libCounts=null;const libHas={};
+const spotDir=P=>`${P.a}_vs_${P.b}_${potType}`;
+function renderLib(P){
+  const box=$("libBox");if(!server||!P){box.hidden=true;return}
+  const dir=spotDir(P),n=libCounts?.[dir]||0;box.hidden=false;box.className="lib";
+  if(board.length!=3){box.innerHTML=`📚 預解算資料庫 ${dir}：${n}/1755 個翻牌<div class="meter"><div style="width:${n/17.55}%"></div></div><span style="font-size:12px">（只收錄翻牌，轉牌/河牌請直接解算）</span>`;return}
+  const cf=canonFlop(board),url=`library/${dir}/${cf.name}.js`;
+  const show=()=>{if(libHas[url]){box.className="lib hit";box.innerHTML=`📚 資料庫已有這個翻牌（${dir}），不用等待`;const b=document.createElement("button");b.className="go";b.style.cssText="padding:7px 16px;font-size:13px;margin-left:auto";b.textContent="立即載入";b.onclick=()=>loadLib(url,cf.perm);box.appendChild(b)}
+    else box.innerHTML=`📚 資料庫尚未收錄此翻牌（${dir} 已有 ${n}/1755）<div class="meter"><div style="width:${n/17.55}%"></div></div>`;};
+  if(url in libHas)show();else{box.innerHTML="📚 查詢資料庫…";fetch(url,{method:"HEAD"}).then(r=>{libHas[url]=r.ok;show()}).catch(()=>{libHas[url]=false;show()})}
+}
+async function loadLib(url,perm){
+  const t=await (await fetch(url)).text();const w={};new Function("window",t)(w);const r=w.RESULT;
+  const inv=[];perm.forEach((c,a)=>inv[c]=a);const m=c=>c[0]+S2[inv[S2.indexOf(c[1])]];   // library suits -> the board you picked
+  r.board=r.board.map(m);r.hands=r.hands.map(hs=>hs.map(h=>m(h.slice(0,2))+m(h.slice(2))));
+  (function fix(n){if(!n)return;if(n.t=="c"&&n.cards){n.cards=n.cards.map(m);n.iso=(n.iso||[]).map(x=>x.map(m))}(n.ch||[]).forEach(fix)})(r.root);
+  R=r;path=[];sel=null;render();$("info").scrollIntoView({behavior:"smooth"});
 }
 function buildPicker(){let h="";for(const s of SU)for(const r of RK)h+=`<button class="${s}" data-c="${r+s}">${r=="T"?"10":r}${SYM[s]}</button>`;$("picker").innerHTML=h;
   $("picker").querySelectorAll("button").forEach(b=>b.onclick=()=>{const c=b.dataset.c,i=board.indexOf(c);if(i>=0)board.splice(i,1);else if(board.length<5)board.push(c);renderSetup()});}
@@ -265,7 +297,7 @@ $("solve").onclick=async()=>{
 $("stop").onclick=()=>fetch("/api/stop",{method:"POST"});
 function reloadResult(){const s=document.createElement("script");s.src="result.js?t="+Date.now();s.onload=()=>{R=window.RESULT;path=[];sel=null;render();$("info").scrollIntoView({behavior:"smooth"})};document.body.appendChild(s);}
 buildPicker();
-fetch("/api/config").then(r=>{if(!r.ok)throw 0;return r.text()}).then(t=>{server=true;cfgText=t;$("dot").className="dot on";$("srvTxt").textContent="本機解算器已連線";loadFromCfg(parseCfg(t))})
+fetch("/api/config").then(r=>{if(!r.ok)throw 0;return r.text()}).then(t=>{server=true;cfgText=t;$("dot").className="dot on";$("srvTxt").textContent="本機解算器已連線";loadFromCfg(parseCfg(t));return fetch("/api/library").then(r=>r.json()).then(j=>{libCounts=j;renderSetup()})})
   .catch(()=>{$("srvTxt").textContent="離線模式（只能瀏覽結果）";$("srvMsg").innerHTML="提示：用 <b>start.bat</b> 開啟可直接在此頁按「開始解算」。";loadFromCfg({})});
 
 // ------------------------------------------------------------ result viewer

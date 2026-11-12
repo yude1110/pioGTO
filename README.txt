@@ -10,6 +10,19 @@
   solver.exe 已編譯好（需支援 AVX2 的 CPU，約 2013 年後的 Intel/AMD 皆可）；
   若換電腦無法執行，執行 build.bat 重新編譯即可。
 
+【預解算資料庫（可放在其他電腦一直跑）】
+  1. 把整個資料夾複製到要跑的電腦（只需要 solver.exe、ranges_6max.txt、presolve.txt、presolve.ps1、presolve.bat）
+  2. 雙擊 presolve.bat 就會開始，依 presolve.txt 的順序把每個對決情境的 1755 種翻牌全部解完
+     （1755 = 花色同構後不重複的翻牌數，任何翻牌都能對應到其中一個）
+     - 隨時可以關閉視窗，下次打開會從中斷處繼續，已算好的會跳過
+     - 執行期間電腦不會進入睡眠；解算程式以較低優先權執行，不影響電腦其他工作
+     - 視窗標題會顯示進度與預估剩餘時間
+  3. 結果在 library\<對決>_<底池類型>\<翻牌>.js；把 library 資料夾複製到你自己的電腦
+     （放在 start.bat 同一層），在六人桌介面選好座位、底池類型和翻牌，
+     若資料庫已收錄就會出現「立即載入」，不用等待
+  參考：24 執行緒的電腦每個翻牌約 1 分鐘、約 100KB；一個對決情境約 32 小時、160MB。
+  要調整情境順序、下注尺度、精確度，請編輯 presolve.txt（改了解算參數建議換一個 library 資料夾名稱）。
+
 【編譯】（每台電腦只需做一次，把整個資料夾複製過去即可）
   macOS / Linux：在終端機執行  ./build.sh        （需要 Xcode Command Line Tools 或 g++/clang++）
   Windows：      雙擊或執行    build.bat         （需要 Visual Studio 的 C++ 工具，或 MinGW-w64 的 g++）

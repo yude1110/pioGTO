@@ -31,7 +31,8 @@ function Send($ctx, [int]$code, [string]$type, [byte[]]$bytes) {
     $r.StatusCode = $code; $r.ContentType = $type
     $r.Headers.Add('Cache-Control', 'no-store')
     $r.ContentLength64 = $bytes.Length
-    $r.OutputStream.Write($bytes, 0, $bytes.Length); $r.OutputStream.Close()
+    if ($ctx.Request.HttpMethod -ne 'HEAD') { $r.OutputStream.Write($bytes, 0, $bytes.Length) }
+    $r.OutputStream.Close()
 }
 function SendText($ctx, [int]$code, [string]$type, [string]$text) {
     Send $ctx $code "$type; charset=utf-8" ([Text.Encoding]::UTF8.GetBytes($text))
@@ -64,6 +65,11 @@ while ($listener.IsListening) {
             $log = (ReadShared $logPath) + (ReadShared $errPath)
             $json = '{"running":' + $run.ToString().ToLower() + ',"exit":' + $code + ',"log":' + (ConvertTo-Json $log) + '}'
             SendText $ctx 200 'application/json' $json
+        }
+        elseif ($path -eq '/api/library') {
+            $lib = Join-Path $dir 'library'; $parts = @()
+            if (Test-Path $lib) { foreach ($d in Get-ChildItem $lib -Directory) { $parts += ('"{0}":{1}' -f $d.Name, @(Get-ChildItem $d.FullName -Filter '*.js').Count) } }
+            SendText $ctx 200 'application/json' ('{' + ($parts -join ',') + '}')
         }
         elseif ($path -eq '/api/stop' -and $method -eq 'POST') {
             if (Running) { $proc.Kill() }
